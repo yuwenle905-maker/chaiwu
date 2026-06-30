@@ -154,10 +154,18 @@ struct DashboardView: View {
             .sheet(isPresented: $showLog) {
                 LogViewerView()
             }
-            .sheet(isPresented: $showExportSheet) {
-                if let url = exportURL {
-                    ShareSheet(url: url)
+            .onChange(of: showExportSheet) { show in
+                guard show, let url = exportURL else { return }
+                guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                      let rootVC = windowScene.windows.first(where: { $0.isKeyWindow })?.rootViewController else {
+                    appLog("导出：找不到 rootViewController", level: .error); return
                 }
+                var presenter = rootVC
+                while let p = presenter.presentedViewController { presenter = p }
+                let av = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+                av.completionWithItemsHandler = { _, _, _, _ in }
+                presenter.present(av, animated: true)
+                showExportSheet = false
             }
         }
     }
@@ -362,10 +370,3 @@ struct TransactionRow: View {
     }
 }
 
-struct ShareSheet: UIViewControllerRepresentable {
-    let url: URL
-    func makeUIViewController(context: Context) -> UIActivityViewController {
-        UIActivityViewController(activityItems: [url], applicationActivities: nil)
-    }
-    func updateUIViewController(_ vc: UIActivityViewController, context: Context) {}
-}
