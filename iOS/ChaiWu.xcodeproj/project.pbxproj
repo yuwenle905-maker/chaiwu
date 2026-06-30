@@ -1,0 +1,415 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		AA00001100000000000000AA /* ChaiWuApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00001000000000000000AA /* ChaiWuApp.swift */; };
+		AA00001300000000000000AA /* Transaction.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00001200000000000000AA /* Transaction.swift */; };
+		AA00001500000000000000AA /* DatabaseManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00001400000000000000AA /* DatabaseManager.swift */; };
+		AA00001700000000000000AA /* XlsxManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00001600000000000000AA /* XlsxManager.swift */; };
+		AA00001900000000000000AA /* ZipArchiveBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00001800000000000000AA /* ZipArchiveBuilder.swift */; };
+		AA00001B00000000000000AA /* SyncEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00001A00000000000000AA /* SyncEngine.swift */; };
+		AA00001D00000000000000AA /* TransactionViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00001C00000000000000AA /* TransactionViewModel.swift */; };
+		AA00001F00000000000000AA /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00001E00000000000000AA /* DashboardView.swift */; };
+		AA00002100000000000000AA /* EntryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00002000000000000000AA /* EntryView.swift */; };
+		AA00002300000000000000AA /* ConflictCenterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00002200000000000000AA /* ConflictCenterView.swift */; };
+		AA00002500000000000000AA /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA00002400000000000000AA /* Assets.xcassets */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		AA00000E00000000000000AA /* ChaiWu.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ChaiWu.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA00001000000000000000AA /* ChaiWuApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChaiWuApp.swift; sourceTree = "<group>"; };
+		AA00001200000000000000AA /* Transaction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Transaction.swift; sourceTree = "<group>"; };
+		AA00001400000000000000AA /* DatabaseManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseManager.swift; sourceTree = "<group>"; };
+		AA00001600000000000000AA /* XlsxManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XlsxManager.swift; sourceTree = "<group>"; };
+		AA00001800000000000000AA /* ZipArchiveBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZipArchiveBuilder.swift; sourceTree = "<group>"; };
+		AA00001A00000000000000AA /* SyncEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncEngine.swift; sourceTree = "<group>"; };
+		AA00001C00000000000000AA /* TransactionViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransactionViewModel.swift; sourceTree = "<group>"; };
+		AA00001E00000000000000AA /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
+		AA00002000000000000000AA /* EntryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EntryView.swift; sourceTree = "<group>"; };
+		AA00002200000000000000AA /* ConflictCenterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConflictCenterView.swift; sourceTree = "<group>"; };
+		AA00002400000000000000AA /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		AA00000B00000000000000AA /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		AA00000C00000000000000AA /* root */ = {
+			isa = PBXGroup;
+			children = (
+				AA00003000000000000000AA /* ChaiWu */,
+				AA00000D00000000000000AA /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		AA00000D00000000000000AA /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				AA00000E00000000000000AA /* ChaiWu.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		AA00003000000000000000AA /* ChaiWu */ = {
+			isa = PBXGroup;
+			children = (
+				AA00001000000000000000AA /* ChaiWuApp.swift */,
+				AA00002400000000000000AA /* Assets.xcassets */,
+				AA00003100000000000000AA /* Models */,
+				AA00003200000000000000AA /* Database */,
+				AA00003300000000000000AA /* Sync */,
+				AA00003400000000000000AA /* ViewModels */,
+				AA00003500000000000000AA /* Views */,
+			);
+			path = ChaiWu;
+			sourceTree = "<group>";
+		};
+		AA00003100000000000000AA /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				AA00001200000000000000AA /* Transaction.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		AA00003200000000000000AA /* Database */ = {
+			isa = PBXGroup;
+			children = (
+				AA00001400000000000000AA /* DatabaseManager.swift */,
+			);
+			path = Database;
+			sourceTree = "<group>";
+		};
+		AA00003300000000000000AA /* Sync */ = {
+			isa = PBXGroup;
+			children = (
+				AA00001600000000000000AA /* XlsxManager.swift */,
+				AA00001800000000000000AA /* ZipArchiveBuilder.swift */,
+				AA00001A00000000000000AA /* SyncEngine.swift */,
+			);
+			path = Sync;
+			sourceTree = "<group>";
+		};
+		AA00003400000000000000AA /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				AA00001C00000000000000AA /* TransactionViewModel.swift */,
+			);
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
+		AA00003500000000000000AA /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				AA00003600000000000000AA /* Dashboard */,
+				AA00003700000000000000AA /* Entry */,
+				AA00003800000000000000AA /* Conflict */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		AA00003600000000000000AA /* Dashboard */ = {
+			isa = PBXGroup;
+			children = (
+				AA00001E00000000000000AA /* DashboardView.swift */,
+			);
+			path = Dashboard;
+			sourceTree = "<group>";
+		};
+		AA00003700000000000000AA /* Entry */ = {
+			isa = PBXGroup;
+			children = (
+				AA00002000000000000000AA /* EntryView.swift */,
+			);
+			path = Entry;
+			sourceTree = "<group>";
+		};
+		AA00003800000000000000AA /* Conflict */ = {
+			isa = PBXGroup;
+			children = (
+				AA00002200000000000000AA /* ConflictCenterView.swift */,
+			);
+			path = Conflict;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		AA00000200000000000000AA /* ChaiWu */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AA00000400000000000000AA /* Build configuration list for PBXNativeTarget "ChaiWu" */;
+			buildPhases = (
+				AA00000900000000000000AA /* Sources */,
+				AA00000B00000000000000AA /* Frameworks */,
+				AA00000A00000000000000AA /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ChaiWu;
+			productName = ChaiWu;
+			productReference = AA00000E00000000000000AA /* ChaiWu.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		AA00000100000000000000AA /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1500;
+				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+					AA00000200000000000000AA = {
+						CreatedOnToolsVersion = 15.0;
+					};
+				};
+			};
+			buildConfigurationList = AA00000300000000000000AA /* Build configuration list for PBXProject "ChaiWu" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = "zh-Hans";
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+				"zh-Hans",
+			);
+			mainGroup = AA00000C00000000000000AA;
+			productRefGroup = AA00000D00000000000000AA /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				AA00000200000000000000AA /* ChaiWu */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		AA00000A00000000000000AA /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA00002500000000000000AA /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		AA00000900000000000000AA /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA00001100000000000000AA /* ChaiWuApp.swift in Sources */,
+				AA00001300000000000000AA /* Transaction.swift in Sources */,
+				AA00001500000000000000AA /* DatabaseManager.swift in Sources */,
+				AA00001700000000000000AA /* XlsxManager.swift in Sources */,
+				AA00001900000000000000AA /* ZipArchiveBuilder.swift in Sources */,
+				AA00001B00000000000000AA /* SyncEngine.swift in Sources */,
+				AA00001D00000000000000AA /* TransactionViewModel.swift in Sources */,
+				AA00001F00000000000000AA /* DashboardView.swift in Sources */,
+				AA00002100000000000000AA /* EntryView.swift in Sources */,
+				AA00002300000000000000AA /* ConflictCenterView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		AA00000500000000000000AA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		AA00000600000000000000AA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		AA00000700000000000000AA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Manual;
+				CODE_SIGN_IDENTITY = "";
+				CODE_SIGNING_REQUIRED = NO;
+				CODE_SIGNING_ALLOWED = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSFaceIDUsageDescription = "验证身份以访问柴务";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.chaiwu.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		AA00000800000000000000AA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Manual;
+				CODE_SIGN_IDENTITY = "";
+				CODE_SIGNING_REQUIRED = NO;
+				CODE_SIGNING_ALLOWED = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSFaceIDUsageDescription = "验证身份以访问柴务";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.chaiwu.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		AA00000300000000000000AA /* Build configuration list for PBXProject "ChaiWu" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AA00000500000000000000AA /* Debug */,
+				AA00000600000000000000AA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AA00000400000000000000AA /* Build configuration list for PBXNativeTarget "ChaiWu" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AA00000700000000000000AA /* Debug */,
+				AA00000800000000000000AA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = AA00000100000000000000AA /* Project object */;
+}

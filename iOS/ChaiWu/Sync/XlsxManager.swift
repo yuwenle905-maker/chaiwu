@@ -8,7 +8,7 @@ final class XlsxManager {
     static let shared = XlsxManager()
 
     // TrollStore 直接访问 iCloud Drive 原始路径
-    private var xlsxURL: URL {
+    var xlsxURL: URL {
         // iCloud Drive 真实路径（TrollStore 可直接读写）
         let icloudBase = URL(fileURLWithPath: "/private/var/mobile/Library/Mobile Documents/com~apple~CloudDocs")
         let dir = icloudBase.appendingPathComponent("ChaiWu", isDirectory: true)
