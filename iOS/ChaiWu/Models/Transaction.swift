@@ -7,15 +7,26 @@ enum TransactionType: String, Codable, CaseIterable {
 }
 
 enum TransactionCategory: String, Codable, CaseIterable {
-    case food = "餐饮"
-    case transport = "交通"
-    case shopping = "购物"
-    case entertainment = "娱乐"
-    case health = "医疗"
-    case education = "教育"
-    case salary = "工资"
-    case investment = "投资"
-    case other = "其他"
+    // 收入分类
+    case clientDeposit  = "客户定金"
+    case clientBalance  = "客户尾款"
+    case expressRefund  = "快递回款"
+    // 支出分类
+    case advertising    = "广告费"
+    case baseSalary     = "底薪"
+    case performance    = "绩效"
+    case logistics      = "产品物流"
+    case incentive      = "激励"
+    case rent           = "房租"
+    // 通用
+    case custom         = "自定义"
+
+    static func categories(for type: TransactionType) -> [TransactionCategory] {
+        switch type {
+        case .income:  return [.clientDeposit, .clientBalance, .expressRefund, .custom]
+        case .expense: return [.advertising, .baseSalary, .performance, .logistics, .incentive, .rent, .custom]
+        }
+    }
 }
 
 struct Transaction: Identifiable, Codable, Equatable {

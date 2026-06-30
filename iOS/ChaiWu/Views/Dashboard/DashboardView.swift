@@ -1,10 +1,12 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct DashboardView: View {
     @EnvironmentObject var vm: TransactionViewModel
     @EnvironmentObject var sync: SyncEngine
     @State private var showEntry = false
     @State private var showConflict = false
+    @State private var showImportPicker = false
     @State private var selectedFilter: TransactionType? = nil
 
     var filteredTransactions: [Transaction] {
@@ -16,25 +18,19 @@ struct DashboardView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
-                    // 冲突提示 Banner
-                    if vm.conflictCount > 0 {
-                        conflictBanner
-                    }
+                    if vm.conflictCount > 0 { conflictBanner }
+                    if let msg = vm.importSuccess { importSuccessBanner(msg) }
+                    if let err = vm.importError   { importErrorBanner(err) }
 
-                    // 汇总卡片
                     summaryCards
-
-                    // 收支筛选
                     filterBar
-
-                    // 流水列表
                     transactionList
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
             }
             .background(Color(.systemGroupedBackground))
-            .navigationTitle("柴务")
+            .navigationTitle("账单")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -45,16 +41,35 @@ struct DashboardView: View {
                     }
                 }
                 ToolbarItem(placement: .topBarLeading) {
-                    syncStatus
+                    Menu {
+                        Button(action: { showImportPicker = true }) {
+                            Label("导入 xlsx", systemImage: "square.and.arrow.down")
+                        }
+                        Button(action: { sync.performSync() }) {
+                            Label("手动同步", systemImage: "arrow.triangle.2.circlepath")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                    }
                 }
             }
             .sheet(isPresented: $showEntry) {
-                EntryView()
-                    .environmentObject(vm)
+                EntryView().environmentObject(vm)
             }
             .sheet(isPresented: $showConflict) {
-                ConflictCenterView()
-                    .environmentObject(vm)
+                ConflictCenterView().environmentObject(vm)
+            }
+            .fileImporter(
+                isPresented: $showImportPicker,
+                allowedContentTypes: [UTType(filenameExtension: "xlsx") ?? .data],
+                allowsMultipleSelection: false
+            ) { result in
+                switch result {
+                case .success(let urls):
+                    if let url = urls.first { vm.importXlsx(from: url) }
+                case .failure(let err):
+                    vm.importError = "选择文件失败：\(err.localizedDescription)"
+                }
             }
         }
     }
@@ -64,14 +79,11 @@ struct DashboardView: View {
     private var conflictBanner: some View {
         Button(action: { showConflict = true }) {
             HStack(spacing: 10) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.white)
+                Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.white)
                 Text("检测到 \(vm.conflictCount) 条数据冲突，点击处理")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.white)
+                    .font(.subheadline.weight(.semibold)).foregroundStyle(.white)
                 Spacer()
-                Image(systemName: "chevron.right")
-                    .foregroundStyle(.white.opacity(0.8))
+                Image(systemName: "chevron.right").foregroundStyle(.white.opacity(0.8))
             }
             .padding(14)
             .background(Color.red.gradient)
@@ -79,13 +91,34 @@ struct DashboardView: View {
         }
     }
 
+    private func importSuccessBanner(_ msg: String) -> some View {
+        HStack {
+            Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+            Text(msg).font(.subheadline).foregroundStyle(.green)
+            Spacer()
+            Button("×") { vm.importSuccess = nil }.foregroundStyle(.secondary)
+        }
+        .padding(12)
+        .background(Color.green.opacity(0.1))
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+    }
+
+    private func importErrorBanner(_ err: String) -> some View {
+        HStack {
+            Image(systemName: "exclamationmark.circle.fill").foregroundStyle(.red)
+            Text(err).font(.subheadline).foregroundStyle(.red)
+            Spacer()
+            Button("×") { vm.importError = nil }.foregroundStyle(.secondary)
+        }
+        .padding(12)
+        .background(Color.red.opacity(0.1))
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+    }
+
     private var summaryCards: some View {
         VStack(spacing: 12) {
-            // 余额大卡
             VStack(spacing: 4) {
-                Text("当前余额")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                Text("当前余额").font(.subheadline).foregroundStyle(.secondary)
                 Text(vm.totalBalance.formatted(.currency(code: "CNY")))
                     .font(.system(size: 38, weight: .bold, design: .rounded))
                     .foregroundStyle(vm.totalBalance >= 0 ? Color.primary : Color.red)
@@ -96,9 +129,8 @@ struct DashboardView: View {
             .clipShape(RoundedRectangle(cornerRadius: 16))
             .shadow(color: .black.opacity(0.04), radius: 8, y: 2)
 
-            // 收支双卡
             HStack(spacing: 12) {
-                SummaryMiniCard(title: "累计收入", amount: vm.totalIncome, color: .green)
+                SummaryMiniCard(title: "累计收入", amount: vm.totalIncome,  color: .green)
                 SummaryMiniCard(title: "累计支出", amount: vm.totalExpense, color: .red)
             }
         }
@@ -106,30 +138,20 @@ struct DashboardView: View {
 
     private var filterBar: some View {
         HStack(spacing: 8) {
-            FilterChip(label: "全部", selected: selectedFilter == nil) {
-                selectedFilter = nil
-            }
-            FilterChip(label: "收入", selected: selectedFilter == .income) {
-                selectedFilter = .income
-            }
-            FilterChip(label: "支出", selected: selectedFilter == .expense) {
-                selectedFilter = .expense
-            }
+            FilterChip(label: "全部",   selected: selectedFilter == nil)      { selectedFilter = nil }
+            FilterChip(label: "收入",   selected: selectedFilter == .income)  { selectedFilter = .income }
+            FilterChip(label: "支出",   selected: selectedFilter == .expense) { selectedFilter = .expense }
             Spacer()
-            Text("\(filteredTransactions.count) 条")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            Text("\(filteredTransactions.count) 条").font(.caption).foregroundStyle(.secondary)
         }
     }
 
     private var transactionList: some View {
-        LazyVStack(spacing: 8, pinnedViews: []) {
+        LazyVStack(spacing: 8) {
             ForEach(filteredTransactions) { t in
                 TransactionRow(transaction: t)
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                        Button(role: .destructive) {
-                            vm.delete(t)
-                        } label: {
+                        Button(role: .destructive) { vm.delete(t) } label: {
                             Label("删除", systemImage: "trash")
                         }
                     }
@@ -137,45 +159,19 @@ struct DashboardView: View {
         }
         .padding(.bottom, 32)
     }
-
-    private var syncStatus: some View {
-        HStack(spacing: 4) {
-            if sync.isSyncing {
-                ProgressView().scaleEffect(0.8)
-                Text("同步中")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            } else if let err = sync.syncError {
-                Image(systemName: "exclamationmark.icloud")
-                    .foregroundStyle(.orange)
-                    .help(err)
-            } else {
-                Image(systemName: "checkmark.icloud")
-                    .foregroundStyle(.green)
-            }
-        }
-    }
 }
 
-struct SummaryMiniCard: View {
-    let title: String
-    let amount: Decimal
-    let color: Color
+// MARK: - 组件
 
+struct SummaryMiniCard: View {
+    let title: String; let amount: Decimal; let color: Color
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Circle()
-                    .fill(color.opacity(0.15))
-                    .frame(width: 28, height: 28)
-                    .overlay(
-                        Image(systemName: title == "累计收入" ? "arrow.down.circle.fill" : "arrow.up.circle.fill")
-                            .foregroundStyle(color)
-                            .font(.system(size: 14))
-                    )
-                Text(title)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                Circle().fill(color.opacity(0.15)).frame(width: 28, height: 28)
+                    .overlay(Image(systemName: title == "累计收入" ? "arrow.down.circle.fill" : "arrow.up.circle.fill")
+                        .foregroundStyle(color).font(.system(size: 14)))
+                Text(title).font(.caption).foregroundStyle(.secondary)
             }
             Text(amount.formatted(.currency(code: "CNY")))
                 .font(.system(size: 18, weight: .semibold, design: .rounded))
@@ -190,18 +186,14 @@ struct SummaryMiniCard: View {
 }
 
 struct FilterChip: View {
-    let label: String
-    let selected: Bool
-    let action: () -> Void
-
+    let label: String; let selected: Bool; let action: () -> Void
     var body: some View {
         Button(action: action) {
             Text(label)
                 .font(.subheadline.weight(selected ? .semibold : .regular))
-                .padding(.horizontal, 14)
-                .padding(.vertical, 6)
+                .padding(.horizontal, 14).padding(.vertical, 6)
                 .background(selected ? Color.blue : Color(.systemFill))
-                .foregroundStyle(selected ? .white : .primary)
+                .foregroundStyle(selected ? .white : Color.primary)
                 .clipShape(Capsule())
         }
     }
@@ -210,17 +202,21 @@ struct FilterChip: View {
 struct TransactionRow: View {
     let transaction: Transaction
 
+    private static let dateFmt: DateFormatter = {
+        let f = DateFormatter(); f.dateFormat = "MM-dd"; return f
+    }()
+
     var body: some View {
         HStack(spacing: 12) {
-            // 分类图标
-            Circle()
-                .fill(transaction.type == .income ? Color.green.opacity(0.12) : Color.red.opacity(0.12))
-                .frame(width: 42, height: 42)
-                .overlay(
-                    Text(categoryEmoji)
-                        .font(.system(size: 20))
-                )
+            // 日期列
+            VStack(spacing: 2) {
+                Text(Self.dateFmt.string(from: transaction.date))
+                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.primary)
+            }
+            .frame(width: 44)
 
+            // 分类 + 备注
             VStack(alignment: .leading, spacing: 3) {
                 Text(transaction.category.rawValue)
                     .font(.subheadline.weight(.medium))
@@ -230,34 +226,18 @@ struct TransactionRow: View {
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
-                Text(transaction.date.formatted(date: .abbreviated, time: .shortened))
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
             }
 
             Spacer()
 
+            // 金额
             Text((transaction.type == .income ? "+" : "-") +
                  transaction.amount.formatted(.currency(code: "CNY")))
                 .font(.system(size: 16, weight: .semibold, design: .rounded))
-                .foregroundStyle(transaction.type == .income ? .green : .red)
+                .foregroundStyle(transaction.type == .income ? Color.green : Color.red)
         }
         .padding(12)
         .background(.background)
         .clipShape(RoundedRectangle(cornerRadius: 12))
-    }
-
-    private var categoryEmoji: String {
-        switch transaction.category {
-        case .food: return "🍜"
-        case .transport: return "🚇"
-        case .shopping: return "🛍️"
-        case .entertainment: return "🎬"
-        case .health: return "💊"
-        case .education: return "📚"
-        case .salary: return "💰"
-        case .investment: return "📈"
-        case .other: return "📌"
-        }
     }
 }

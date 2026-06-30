@@ -6,12 +6,17 @@ struct EntryView: View {
 
     @State private var type: TransactionType = .expense
     @State private var amountText = ""
-    @State private var category: TransactionCategory = .food
+    @State private var category: TransactionCategory = .advertising
     @State private var note = ""
     @State private var date = Date()
     @State private var showError = false
 
     var amount: Decimal? { Decimal(string: amountText) }
+
+    // 根据收支类型动态显示分类
+    var availableCategories: [TransactionCategory] {
+        TransactionCategory.categories(for: type)
+    }
 
     var body: some View {
         NavigationStack {
@@ -24,6 +29,10 @@ struct EntryView: View {
                         }
                     }
                     .pickerStyle(.segmented)
+                    .onChange(of: type) { _ in
+                        // 切换类型时重置分类到第一项
+                        category = availableCategories[0]
+                    }
                 }
 
                 Section("金额") {
@@ -34,20 +43,22 @@ struct EntryView: View {
                         TextField("0.00", text: $amountText)
                             .keyboardType(.decimalPad)
                             .font(.system(size: 28, weight: .bold, design: .rounded))
-                            .foregroundStyle(type == .income ? .green : .red)
+                            .foregroundStyle(type == .income ? Color.green : Color.red)
                     }
                 }
 
                 Section("分类") {
                     Picker("分类", selection: $category) {
-                        ForEach(TransactionCategory.allCases, id: \.self) { c in
+                        ForEach(availableCategories, id: \.self) { c in
                             Text(c.rawValue).tag(c)
                         }
                     }
+                    .pickerStyle(.wheel)
+                    .frame(height: 120)
                 }
 
                 Section("备注") {
-                    TextField("可选", text: $note, axis: .vertical)
+                    TextField("请输入备注（可选）", text: $note, axis: .vertical)
                         .lineLimit(3)
                 }
 
@@ -56,7 +67,7 @@ struct EntryView: View {
                         .labelsHidden()
                 }
             }
-            .navigationTitle("新增记录")
+            .navigationTitle("新增账单")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
