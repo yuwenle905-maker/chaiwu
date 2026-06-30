@@ -234,24 +234,34 @@ final class XlsReader {
         var sst = [String]()
         if let sstRec = merged.first(where: { $0.type == 0x00FC }), sstRec.data.count >= 8 {
             let sd = sstRec.data
-            if true {
-                let total = Int(sd[4]) | (Int(sd[5])<<8) | (Int(sd[6])<<16) | (Int(sd[7])<<24)
-                var p = 8
-                for _ in 0..<total {
-                    guard p+3 <= sd.count else { break }
-                    let cch   = Int(sd[p]) | (Int(sd[p+1])<<8); p += 2
-                    let flags = Int(sd[p]); p += 1
-                    let hi    = (flags & 1) != 0
-                    let rich  = (flags & 8) != 0
-                    let ext   = (flags & 4) != 0
-                    let rt2   = rich ? (Int(sd[p]) | (Int(sd[p+1])<<8)) : 0; if rich { p += 2 }
-                    let esz   = ext  ? (Int(sd[p]) | (Int(sd[p+1])<<8) | (Int(sd[p+2])<<16) | (Int(sd[p+3])<<24)) : 0; if ext { p += 4 }
-                    let bytes = hi ? cch*2 : cch
-                    sst.append(biffStr(buf: sd, at: p, cch: cch, highByte: hi))
-                    p += bytes
-                    if rich { p += rt2*4 }
-                    if ext  { p += esz }
-                }
+            // 安全字节读取，越界返回 0，避免 fatal error
+            func sb(_ i: Int) -> Int { i >= 0 && i < sd.count ? Int(sd[i]) : 0 }
+            let total = sb(4) | (sb(5)<<8) | (sb(6)<<16) | (sb(7)<<24)
+            var p = 8
+            for _ in 0..<total {
+                guard p < sd.count else { break }
+                let cch   = sb(p) | (sb(p+1)<<8); p += 2
+                guard p < sd.count else { break }
+                let flags = sb(p); p += 1
+                let hi    = (flags & 1) != 0
+                let rich  = (flags & 8) != 0
+                let ext   = (flags & 4) != 0
+                let rt2: Int
+                if rich {
+                    guard p+1 < sd.count else { break }
+                    rt2 = sb(p) | (sb(p+1)<<8); p += 2
+                } else { rt2 = 0 }
+                let esz: Int
+                if ext {
+                    guard p+3 < sd.count else { break }
+                    esz = sb(p) | (sb(p+1)<<8) | (sb(p+2)<<16) | (sb(p+3)<<24); p += 4
+                } else { esz = 0 }
+                let bytes = hi ? cch*2 : cch
+                guard p+bytes <= sd.count else { break }
+                sst.append(biffStr(buf: sd, at: p, cch: cch, highByte: hi))
+                p += bytes
+                if rich { p += rt2*4 }
+                if ext  { p += esz }
             }
         }
 
