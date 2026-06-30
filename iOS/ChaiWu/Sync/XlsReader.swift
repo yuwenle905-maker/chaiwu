@@ -278,6 +278,10 @@ final class XlsReader {
         func flush() {
             guard curRow >= 0, !rowBuf.isEmpty else { return }
             let maxC = rowBuf.keys.max() ?? 0
+            guard maxC < 1024 else {
+                appLog("BIFF8: flush 跳过异常列号 maxC=\(maxC) row=\(curRow)", level: .warn)
+                rowBuf.removeAll(); return
+            }
             let cells = (0...maxC).map { rowBuf[$0] ?? .empty }
             while rows.count <= curRow { rows.append([]) }
             rows[curRow] = cells
@@ -303,7 +307,7 @@ final class XlsReader {
                 return v
             }
 
-            if recIdx % 100 == 0 { appLog("BIFF8: 处理到第 \(recIdx) 条 record, type=0x\(String(rec.type, radix:16))") }
+            if recIdx % 10 == 0 { appLog("BIFF8: rec#\(recIdx) type=0x\(String(rec.type, radix:16)) len=\(rd.count)") }
             switch rec.type {
             case 0x0809: // BOF
                 let dt = rd.count >= 4 ? rw(2) : 0
