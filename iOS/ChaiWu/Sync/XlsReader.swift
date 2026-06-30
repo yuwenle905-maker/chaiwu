@@ -28,13 +28,19 @@ final class XlsReader {
     // MARK: - Public
 
     static func parse(data: Data) throws -> [[XlsCell]] {
+        appLog("XlsReader.parse 开始, dataSize=\(data.count)")
         let magic: [UInt8] = [0xD0,0xCF,0x11,0xE0,0xA1,0xB1,0x1A,0xE1]
         guard data.count >= 512, (0..<8).allSatisfy({ data[$0] == magic[$0] }) else {
+            appLog("OLE2 magic 校验失败，非 XLS 格式", level: .warn)
             throw XlsReaderError.notXLS
         }
+        appLog("OLE2 magic OK，提取 Workbook stream...")
         let reader = XlsReader(data: data)
         let stream = try reader.extractWorkbookStream()
-        return reader.parseBIFF8(stream: stream)
+        appLog("Workbook stream size=\(stream.count)，开始解析 BIFF8...")
+        let rows = reader.parseBIFF8(stream: stream)
+        appLog("BIFF8 解析完成，rows=\(rows.count)")
+        return rows
     }
 
     // MARK: - Private

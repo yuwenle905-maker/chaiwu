@@ -90,20 +90,42 @@ final class TransactionViewModel: ObservableObject {
     func importXlsx(from url: URL) {
         importError = nil
         importSuccess = nil
+        appLog("导入开始: \(url.lastPathComponent) ext=\(url.pathExtension)")
+
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self else { return }
             do {
+                appLog("读取文件数据...")
                 let accessed = url.startAccessingSecurityScopedResource()
                 defer { if accessed { url.stopAccessingSecurityScopedResource() } }
 
-                let imported = try XlsxManager.shared.importAny(from: url)
+                guard FileManager.default.fileExists(atPath: url.path) else {
+                    throw NSError(domain: "Import", code: 1,
+                                  userInfo: [NSLocalizedDescriptionKey: "文件不存在: \(url.path)"])
+                }
+                let fileSize = (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int) ?? 0
+                appLog("文件大小: \(fileSize) bytes")
+
+                let data = try Data(contentsOf: url)
+                appLog("Data 读取成功, count=\(data.count)")
+
+                let ext = url.pathExtension.lowercased()
+                appLog("扩展名: \(ext), 开始解析...")
+
+                let imported = try XlsxManager.shared.importAny(from: url, data: data)
+                appLog("解析完成, 共 \(imported.count) 条", level: .info)
+
                 self.db.batchUpsert(imported)
+                appLog("数据库写入完成")
 
                 DispatchQueue.main.async {
                     self.reload()
                     self.importSuccess = "成功导入 \(imported.count) 条记录"
+                    appLog("导入成功完成")
                 }
             } catch {
+                appLog("导入异常: \(error)", level: .error)
+                appLog("详细: \((error as NSError).userInfo)", level: .error)
                 DispatchQueue.main.async {
                     self.importError = "导入失败：\(error.localizedDescription)"
                 }

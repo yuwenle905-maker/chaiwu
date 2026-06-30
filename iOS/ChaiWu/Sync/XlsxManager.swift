@@ -60,24 +60,32 @@ final class XlsxManager {
         return try OOXMLReader.parse(data: data)
     }
 
-    func importAny(from url: URL) throws -> [Transaction] {
+    func importAny(from url: URL, data: Data) throws -> [Transaction] {
         let ext = url.pathExtension.lowercased()
-        let data = try Data(contentsOf: url)
+        appLog("importAny ext=\(ext) dataSize=\(data.count)")
         switch ext {
         case "xlsx":
+            appLog("走 OOXML 解析路径")
             return try OOXMLReader.parse(data: data)
         case "xls":
+            appLog("走 XLS 二进制解析路径")
             let rows = try XlsReader.parse(data: data)
+            appLog("XLS rows=\(rows.count)")
             return XlsReader.rowsToTransactions(rows)
         case "csv":
+            appLog("走 CSV 解析路径")
             return try CSVImporter.parse(data: data)
         default:
-            // Try xlsx first, then xls, then CSV
-            if let ts = try? OOXMLReader.parse(data: data), !ts.isEmpty { return ts }
+            appLog("未知扩展名，依次尝试 xlsx→xls→csv")
+            if let ts = try? OOXMLReader.parse(data: data), !ts.isEmpty {
+                appLog("OOXML 成功 \(ts.count) 条")
+                return ts
+            }
             if let rows = try? XlsReader.parse(data: data) {
                 let ts = XlsReader.rowsToTransactions(rows)
-                if !ts.isEmpty { return ts }
+                if !ts.isEmpty { appLog("XLS fallback 成功 \(ts.count) 条"); return ts }
             }
+            appLog("最终走 CSV fallback")
             return try CSVImporter.parse(data: data)
         }
     }

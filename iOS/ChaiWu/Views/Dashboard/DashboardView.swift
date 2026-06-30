@@ -30,14 +30,18 @@ struct DocumentPickerPresenter: UIViewControllerRepresentable {
         init(_ p: DocumentPickerPresenter) { parent = p }
 
         func documentPicker(_ c: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+            appLog("picker didPick: \(urls.map(\.lastPathComponent))")
             parent.isPresented = false
-            if let url = urls.first {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    self.parent.onPick(url)
-                }
+            guard let url = urls.first else { appLog("无 URL 返回", level: .warn); return }
+            appLog("选中文件: \(url.lastPathComponent), path=\(url.path)")
+            appLog("文件存在: \(FileManager.default.fileExists(atPath: url.path))")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                appLog("开始调用 importXlsx...")
+                self.parent.onPick(url)
             }
         }
         func documentPickerWasCancelled(_ c: UIDocumentPickerViewController) {
+            appLog("picker cancelled")
             parent.isPresented = false
         }
     }
@@ -54,6 +58,7 @@ struct DashboardView: View {
     @State private var editingTransaction: Transaction?
     @State private var showConflict = false
     @State private var showImportPicker = false
+    @State private var showLog = false
     @State private var selectedFilter: TransactionType? = nil
 
     var filteredTransactions: [Transaction] {
@@ -106,6 +111,9 @@ struct DashboardView: View {
                         Toggle(isOn: $biometricLockEnabled) {
                             Label("面容/指纹解锁", systemImage: "faceid")
                         }
+                        Button(action: { showLog = true }) {
+                            Label("运行日志", systemImage: "doc.text.magnifyingglass")
+                        }
                     } label: {
                         Image(systemName: "ellipsis.circle")
                     }
@@ -119,6 +127,9 @@ struct DashboardView: View {
             }
             .sheet(isPresented: $showConflict) {
                 ConflictCenterView().environmentObject(vm)
+            }
+            .sheet(isPresented: $showLog) {
+                LogViewerView()
             }
         }
     }
