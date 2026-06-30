@@ -13,11 +13,19 @@ final class DatabaseManager {
         createTable()
     }
 
-    // TrollStore 优势：直接写入不受沙盒限制的持久路径
     private var dbPath: String {
-        let dir = "/var/mobile/Documents/ChaiWu"
-        try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
-        return "\(dir)/chaiwu.sqlite"
+        // 优先使用标准沙盒 Documents（TrollStore 和普通安装均可写）
+        let sandboxDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
+            .first!.appendingPathComponent("ChaiWu").path
+        if (try? FileManager.default.createDirectory(atPath: sandboxDir,
+                                                     withIntermediateDirectories: true)) != nil
+            || FileManager.default.fileExists(atPath: sandboxDir) {
+            return "\(sandboxDir)/chaiwu.sqlite"
+        }
+        // TrollStore fallback
+        let trollDir = "/var/mobile/Documents/ChaiWu"
+        try? FileManager.default.createDirectory(atPath: trollDir, withIntermediateDirectories: true)
+        return "\(trollDir)/chaiwu.sqlite"
     }
 
     private func openDatabase() {

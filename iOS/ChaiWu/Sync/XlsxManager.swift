@@ -7,19 +7,26 @@ import Foundation
 final class XlsxManager {
     static let shared = XlsxManager()
 
-    // TrollStore 直接访问 iCloud Drive 原始路径
     var xlsxURL: URL {
-        // iCloud Drive 真实路径（TrollStore 可直接读写）
-        let icloudBase = URL(fileURLWithPath: "/private/var/mobile/Library/Mobile Documents/com~apple~CloudDocs")
-        let dir = icloudBase.appendingPathComponent("ChaiWu", isDirectory: true)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        return dir.appendingPathComponent("chaiwu_data.xlsx")
+        // 优先 iCloud Drive（TrollStore 直接访问）
+        let icloud = URL(fileURLWithPath: "/private/var/mobile/Library/Mobile Documents/com~apple~CloudDocs/ChaiWu")
+        if (try? FileManager.default.createDirectory(at: icloud, withIntermediateDirectories: true)) != nil
+            || FileManager.default.fileExists(atPath: icloud.path) {
+            return icloud.appendingPathComponent("chaiwu_data.xlsx")
+        }
+        // fallback：沙盒 Documents
+        let sandbox = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+            .appendingPathComponent("ChaiWu", isDirectory: true)
+        try? FileManager.default.createDirectory(at: sandbox, withIntermediateDirectories: true)
+        return sandbox.appendingPathComponent("chaiwu_data.xlsx")
     }
 
     private var backupDir: URL {
-        let dir = URL(fileURLWithPath: "/var/mobile/Documents/ChaiWu/backups")
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        return dir
+        // 备份与 db 同级
+        let base = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+            .appendingPathComponent("ChaiWu/backups", isDirectory: true)
+        try? FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
+        return base
     }
 
     // MARK: - 导出（写入 xlsx）
