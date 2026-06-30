@@ -201,6 +201,7 @@ final class XlsReader {
         }
 
         // Collect all records first (handle CONTINUE merging for SST)
+        appLog("BIFF8: 开始收集 records, stream=\(stream.count)")
         var records = [(type: Int, data: Data)]()
         var pos = 0
         while pos + 4 <= stream.count {
@@ -210,6 +211,7 @@ final class XlsReader {
             records.append((rt, Data(stream[start..<end])))
             pos = end
         }
+        appLog("BIFF8: records=\(records.count)")
 
         // Merge CONTINUE records into SST
         var merged = [(type: Int, data: Data)]()
@@ -229,6 +231,7 @@ final class XlsReader {
                 idx += 1
             }
         }
+        appLog("BIFF8: merged=\(merged.count)")
 
         // Parse SST
         var sst = [String]()
@@ -265,6 +268,7 @@ final class XlsReader {
             }
         }
 
+        appLog("BIFF8: SST=\(sst.count) strings")
         // Parse worksheet records
         var rows = [[XlsCell]]()
         var rowBuf = [Int: XlsCell]()
@@ -284,7 +288,10 @@ final class XlsReader {
             rowBuf[col] = val
         }
 
+        appLog("BIFF8: 开始遍历 worksheet records")
+        var recIdx = 0
         for rec in merged {
+            recIdx += 1
             let rd = rec.data
             func rb(_ i: Int) -> Int { i < rd.count ? Int(rd[i]) : 0 }
             func rw(_ i: Int) -> Int { rb(i) | (rb(i+1)<<8) }
@@ -296,6 +303,7 @@ final class XlsReader {
                 return v
             }
 
+            if recIdx % 100 == 0 { appLog("BIFF8: 处理到第 \(recIdx) 条 record, type=0x\(String(rec.type, radix:16))") }
             switch rec.type {
             case 0x0809: // BOF
                 let dt = rd.count >= 4 ? rw(2) : 0
