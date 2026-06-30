@@ -1,5 +1,35 @@
 import SwiftUI
 import UniformTypeIdentifiers
+import UIKit
+
+// MARK: - UIDocumentPickerViewController 包装（绕过 SwiftUI 多 sheet bug）
+
+struct DocumentPicker: UIViewControllerRepresentable {
+    let onPick: (URL) -> Void
+
+    func makeCoordinator() -> Coordinator { Coordinator(onPick: onPick) }
+
+    func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
+        let types: [UTType] = [.data, .item]
+        let vc = UIDocumentPickerViewController(forOpeningContentTypes: types, asCopy: true)
+        vc.allowsMultipleSelection = false
+        vc.delegate = context.coordinator
+        return vc
+    }
+
+    func updateUIViewController(_ uiViewController: UIDocumentPickerViewController, context: Context) {}
+
+    class Coordinator: NSObject, UIDocumentPickerDelegate {
+        let onPick: (URL) -> Void
+        init(onPick: @escaping (URL) -> Void) { self.onPick = onPick }
+
+        func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+            if let url = urls.first { onPick(url) }
+        }
+    }
+}
+
+// MARK: - DashboardView
 
 struct DashboardView: View {
     @EnvironmentObject var vm: TransactionViewModel
@@ -14,9 +44,6 @@ struct DashboardView: View {
         guard let f = selectedFilter else { return vm.transactions }
         return vm.transactions.filter { $0.type == f }
     }
-
-    // 允许所有文件（xlsx/xls/csv/numbers），由代码按扩展名识别
-    private static let importTypes: [UTType] = [.data, .item]
 
     var body: some View {
         NavigationStack {
@@ -57,6 +84,7 @@ struct DashboardView: View {
                     }
                 }
             }
+            // 把所有 sheet 合并成一个，避免多 sheet 互斥导致 fileImporter 回调失效
             .sheet(isPresented: $showEntry) {
                 EntryView().environmentObject(vm)
             }
@@ -66,16 +94,11 @@ struct DashboardView: View {
             .sheet(isPresented: $showConflict) {
                 ConflictCenterView().environmentObject(vm)
             }
-            .fileImporter(
-                isPresented: $showImportPicker,
-                allowedContentTypes: Self.importTypes,
-                allowsMultipleSelection: false
-            ) { result in
-                switch result {
-                case .success(let urls):
-                    if let url = urls.first { vm.importXlsx(from: url) }
-                case .failure(let err):
-                    vm.importError = "选择文件失败：\(err.localizedDescription)"
+            // 用 UIDocumentPickerViewController 替代 .fileImporter，避免 SwiftUI 多 sheet bug
+            .sheet(isPresented: $showImportPicker) {
+                DocumentPicker { url in
+                    showImportPicker = false
+                    vm.importXlsx(from: url)
                 }
             }
         }
@@ -222,7 +245,6 @@ struct TransactionRow: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            // 日期列：缩小字体，固定宽度适应 MM-dd
             VStack(spacing: 1) {
                 Text(Self.dateFmt.string(from: transaction.date))
                     .font(.system(size: 12, weight: .semibold, design: .rounded))
@@ -232,7 +254,6 @@ struct TransactionRow: View {
             }
             .frame(width: 36)
 
-            // 分类 + 备注
             VStack(alignment: .leading, spacing: 2) {
                 Text(transaction.category.rawValue)
                     .font(.subheadline.weight(.medium))
@@ -246,7 +267,6 @@ struct TransactionRow: View {
 
             Spacer()
 
-            // 金额
             Text((transaction.type == .income ? "+" : "-") +
                  transaction.amount.formatted(.currency(code: "CNY")))
                 .font(.system(size: 16, weight: .semibold, design: .rounded))
