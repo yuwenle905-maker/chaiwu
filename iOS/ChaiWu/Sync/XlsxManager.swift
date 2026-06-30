@@ -217,60 +217,179 @@ enum OOXMLWriter {
 
 enum OOXMLReader {
     static func parse(data: Data) throws -> [Transaction] {
-        // 使用 CoreXLSX 解析，fallback 到基础 XML 解析
-        // 实际项目中集成 CoreXLSX SPM 包替换此实现
         guard let zip = try? ZipArchiveReader.read(data: data),
               let sheetData = zip["xl/worksheets/sheet1.xml"] else {
             throw SyncError.parseError("无法读取 xlsx 文件内容")
         }
-
+        // 读取共享字符串表（ExcelJS 等工具生成的 xlsx 使用此格式）
+        let sharedStrings = parseSharedStrings(zip["xl/sharedStrings.xml"])
         let xml = String(data: sheetData, encoding: .utf8) ?? ""
-        return parseSheetXML(xml)
+        let rows = extractRows(xml: xml, sharedStrings: sharedStrings)
+
+        // 先尝试 app 导出格式（有 UUID）
+        let appFormat = parseAppFormat(rows: rows)
+        if !appFormat.isEmpty { return appFormat }
+
+        // 再尝试自定义格式（日期/金额/余额/备注）
+        return parseAutoFormat(rows: rows)
     }
 
-    private static func parseSheetXML(_ xml: String) -> [Transaction] {
-        // 提取所有 <row> 的内联字符串值
-        var transactions: [Transaction] = []
-        let rowPattern = try? NSRegularExpression(pattern: "<row>(.*?)</row>", options: .dotMatchesLineSeparators)
-        let cellPattern = try? NSRegularExpression(pattern: "<t>(.*?)</t>|<v>(.*?)</v>")
+    // MARK: 共享字符串表
+    private static func parseSharedStrings(_ data: Data?) -> [String] {
+        guard let data = data,
+              let xml = String(data: data, encoding: .utf8) else { return [] }
+        var result: [String] = []
+        let siPattern = try? NSRegularExpression(pattern: "<si>(.*?)</si>", options: .dotMatchesLineSeparators)
+        let tPattern  = try? NSRegularExpression(pattern: "<t[^>]*>(.*?)</t>", options: .dotMatchesLineSeparators)
+        let full = NSRange(xml.startIndex..., in: xml)
+        for m in siPattern?.matches(in: xml, range: full) ?? [] {
+            guard let r = Range(m.range(at: 1), in: xml) else { result.append(""); continue }
+            let si = String(xml[r])
+            let tFull = NSRange(si.startIndex..., in: si)
+            var parts: [String] = []
+            for t in tPattern?.matches(in: si, range: tFull) ?? [] {
+                if let tr = Range(t.range(at: 1), in: si) { parts.append(String(si[tr]).xmlUnescaped) }
+            }
+            result.append(parts.joined())
+        }
+        return result
+    }
+
+    // MARK: 提取所有行的单元格值
+    private static func extractRows(xml: String, sharedStrings: [String]) -> [[String]] {
+        var result: [[String]] = []
+        // 匹配每个 <row ...>...</row>
+        let rowPat  = try? NSRegularExpression(pattern: #"<row\b[^>]*>(.*?)</row>"#, options: .dotMatchesLineSeparators)
+        // 匹配单元格：<c r="A1" t="s"><v>0</v></c>  or  <c ...><is><t>text</t></is></c>
+        let cellPat = try? NSRegularExpression(pattern: #"<c\b([^>]*)>(.*?)</c>"#, options: .dotMatchesLineSeparators)
+        let tPat    = try? NSRegularExpression(pattern: #"<t[^>]*>(.*?)</t>"#, options: .dotMatchesLineSeparators)
+        let vPat    = try? NSRegularExpression(pattern: #"<v>(.*?)</v>"#, options: .dotMatchesLineSeparators)
 
         let fullRange = NSRange(xml.startIndex..., in: xml)
-        let rows = rowPattern?.matches(in: xml, range: fullRange) ?? []
-
-        for (i, rowMatch) in rows.enumerated() {
-            guard i > 0 else { continue } // 跳过表头
+        for rowMatch in rowPat?.matches(in: xml, range: fullRange) ?? [] {
             guard let rowRange = Range(rowMatch.range(at: 1), in: xml) else { continue }
             let rowXML = String(xml[rowRange])
-            let cellRange = NSRange(rowXML.startIndex..., in: rowXML)
-            let cells = cellPattern?.matches(in: rowXML, range: cellRange) ?? []
+            var cols: [(col: Int, value: String)] = []
 
-            var values: [String] = []
-            for cell in cells {
-                for g in 1...2 {
-                    if let r = Range(cell.range(at: g), in: rowXML) {
-                        values.append(String(rowXML[r]).xmlUnescaped)
-                        break
+            let rowNS = NSRange(rowXML.startIndex..., in: rowXML)
+            for cellMatch in cellPat?.matches(in: rowXML, range: rowNS) ?? [] {
+                guard let attrRange = Range(cellMatch.range(at: 1), in: rowXML),
+                      let bodyRange = Range(cellMatch.range(at: 2), in: rowXML) else { continue }
+                let attr = String(rowXML[attrRange])
+                let body = String(rowXML[bodyRange])
+
+                // 列号：从 r="B3" 提取列字母
+                let colIdx = columnIndex(from: attr)
+
+                let value: String
+                if attr.contains("t=\"s\"") {
+                    // shared string reference
+                    let bodyNS = NSRange(body.startIndex..., in: body)
+                    if let vm = vPat?.firstMatch(in: body, range: bodyNS),
+                       let vr = Range(vm.range(at: 1), in: body),
+                       let idx = Int(body[vr]), idx < sharedStrings.count {
+                        value = sharedStrings[idx]
+                    } else { value = "" }
+                } else if attr.contains("t=\"inlineStr\"") || body.contains("<is>") {
+                    // inline string
+                    let bodyNS = NSRange(body.startIndex..., in: body)
+                    var parts: [String] = []
+                    for tm in tPat?.matches(in: body, range: bodyNS) ?? [] {
+                        if let tr = Range(tm.range(at: 1), in: body) { parts.append(String(body[tr]).xmlUnescaped) }
                     }
+                    value = parts.joined()
+                } else {
+                    // number or formula result
+                    let bodyNS = NSRange(body.startIndex..., in: body)
+                    if let vm = vPat?.firstMatch(in: body, range: bodyNS),
+                       let vr = Range(vm.range(at: 1), in: body) {
+                        value = String(body[vr]).xmlUnescaped
+                    } else { value = "" }
                 }
+                cols.append((col: colIdx, value: value))
             }
 
-            guard values.count >= 9 else { continue }
-            guard
-                let date = ISO8601DateFormatter().date(from: values[0]),
-                let type = TransactionType(rawValue: values[1]),
-                let amount = Decimal(string: values[2]),
-                let category = TransactionCategory(rawValue: values[3]),
-                let id = UUID(uuidString: values[5]),
-                let modifiedAt = ISO8601DateFormatter().date(from: values[6])
-            else { continue }
-
-            transactions.append(Transaction(
-                id: id, date: date, type: type, amount: amount, category: category,
-                note: values[4], modifiedAt: modifiedAt, sourceDevice: values[7],
-                isConflict: values[8] == "true"
-            ))
+            // 填充到数组（按列号对齐，允许稀疏）
+            if cols.isEmpty { continue }
+            let maxCol = (cols.map(\.col).max() ?? 0) + 1
+            var row = Array(repeating: "", count: maxCol)
+            for c in cols { if c.col < maxCol { row[c.col] = c.value } }
+            result.append(row)
         }
-        return transactions
+        return result
+    }
+
+    // 从单元格属性字符串中提取列号（A=0, B=1, ...）
+    private static func columnIndex(from attr: String) -> Int {
+        // 找 r="XN" 中的列字母部分
+        guard let rng = attr.range(of: #"r="([A-Z]+)\d+""#, options: .regularExpression) else { return 0 }
+        let token = String(attr[rng]).replacingOccurrences(of: "r=\"", with: "").filter { $0.isLetter }
+        return token.unicodeScalars.reduce(0) { $0 * 26 + Int($1.value) - 64 } - 1
+    }
+
+    // MARK: App 标准格式（含 UUID）
+    private static func parseAppFormat(rows: [[String]]) -> [Transaction] {
+        var results: [Transaction] = []
+        let iso = ISO8601DateFormatter()
+        for (i, values) in rows.enumerated() {
+            guard i > 0, values.count >= 9 else { continue }
+            guard let date     = iso.date(from: values[0]),
+                  let type     = TransactionType(rawValue: values[1]),
+                  let amount   = Decimal(string: values[2]),
+                  let category = TransactionCategory(rawValue: values[3]),
+                  let id       = UUID(uuidString: values[5]),
+                  let modified = iso.date(from: values[6]) else { continue }
+            results.append(Transaction(id: id, date: date, type: type, amount: amount,
+                category: category, note: values[4], modifiedAt: modified,
+                sourceDevice: values[7], isConflict: values[8] == "true"))
+        }
+        return results
+    }
+
+    // MARK: 自定义格式（日期/金额/余额/备注）
+    private static func parseAutoFormat(rows: [[String]]) -> [Transaction] {
+        var results: [Transaction] = []
+        let now = Date()
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "Asia/Shanghai") ?? .current
+
+        for (i, values) in rows.enumerated() {
+            guard i > 0, values.count >= 2 else { continue }
+            let dateStr = values[0]
+            guard !dateStr.isEmpty else { continue }
+
+            // 解析金额（B列）
+            let amtStr = values[1].replacingOccurrences(of: ",", with: "")
+            guard let amtDouble = Double(amtStr), amtDouble != 0 else { continue }
+            guard let amount = Decimal(string: String(format: "%.2f", abs(amtDouble))) else { continue }
+
+            // 解析日期：支持 "M月d日" / "yyyy-MM-dd" / ISO8601
+            let date: Date
+            if let d = parseChineseDateXlsx(dateStr, cal: cal) { date = d }
+            else if let d = ISO8601DateFormatter().date(from: dateStr) { date = d }
+            else { date = now }
+
+            let type: TransactionType = amtDouble >= 0 ? .income : .expense
+            let note = values.count >= 4 ? values[3] : ""
+            let category = CSVImporter.guessCategory(note: note, isIncome: amtDouble >= 0)
+
+            results.append(Transaction(date: date, type: type, amount: amount,
+                category: category, note: note, sourceDevice: "xlsx导入"))
+        }
+        return results
+    }
+
+    private static func parseChineseDateXlsx(_ s: String, cal: Calendar) -> Date? {
+        // 匹配 "4月2日" 或 "04月02日"
+        let pat = try? NSRegularExpression(pattern: #"(\d{1,2})月(\d{1,2})日"#)
+        let ns = s as NSString
+        if let m = pat?.firstMatch(in: s, range: NSRange(location: 0, length: ns.length)) {
+            let mo = Int(ns.substring(with: m.range(at: 1))) ?? 0
+            let dy = Int(ns.substring(with: m.range(at: 2))) ?? 0
+            var comps = DateComponents(); comps.year = 2026; comps.month = mo; comps.day = dy
+            return cal.date(from: comps)
+        }
+        return nil
     }
 }
 
@@ -369,7 +488,7 @@ enum CSVImporter {
         return df.date(from: s)
     }
 
-    private static func guessCategory(note: String, isIncome: Bool) -> TransactionCategory {
+    static func guessCategory(note: String, isIncome: Bool) -> TransactionCategory {
         if isIncome {
             if note.contains("快递") { return .expressRefund }
             if note.contains("尾款") { return .clientBalance }
