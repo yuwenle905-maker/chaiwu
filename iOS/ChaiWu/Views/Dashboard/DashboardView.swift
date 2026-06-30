@@ -76,6 +76,7 @@ struct DashboardView: View {
     @State private var showLog = false
     @State private var exportURL: URL?
     @State private var showExportSheet = false
+    @State private var showAdvertising = false
     @State private var selectedFilter: TransactionType? = nil
 
     var filteredTransactions: [Transaction] {
@@ -153,6 +154,9 @@ struct DashboardView: View {
             }
             .sheet(isPresented: $showLog) {
                 LogViewerView()
+            }
+            .sheet(isPresented: $showAdvertising) {
+                AdvertisingDetailView().environmentObject(vm)
             }
             .onChange(of: showExportSheet) { show in
                 guard show, let url = exportURL else { return }
@@ -251,9 +255,11 @@ struct DashboardView: View {
             .clipShape(RoundedRectangle(cornerRadius: 16))
             .shadow(color: .black.opacity(0.04), radius: 8, y: 2)
 
-            HStack(spacing: 12) {
+            HStack(spacing: 10) {
                 SummaryMiniCard(title: "累计收入", amount: vm.totalIncome,  color: .green)
                 SummaryMiniCard(title: "累计支出", amount: vm.totalExpense, color: .red)
+                SummaryMiniCard(title: "广告支出", amount: vm.totalAdvertising, color: .orange)
+                    .onTapGesture { showAdvertising = true }
             }
         }
     }

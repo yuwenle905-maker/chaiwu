@@ -22,6 +22,16 @@ final class TransactionViewModel: ObservableObject {
     var totalExpense: Decimal { transactions.filter { $0.type == .expense }.reduce(0) { $0 + $1.amount } }
     var conflictCount: Int { conflicts.count }
 
+    var advertisingTransactions: [Transaction] {
+        transactions.filter {
+            $0.type == .expense &&
+            ($0.category == .advertising || $0.note.contains("广告"))
+        }.sorted { $0.date > $1.date }
+    }
+    var totalAdvertising: Decimal {
+        advertisingTransactions.reduce(0) { $0 + $1.amount }
+    }
+
     init() {
         sync.$conflictCount
             .sink { [weak self] _ in self?.reload() }
