@@ -70,18 +70,8 @@ final class SyncEngine: ObservableObject {
                     // 远端更新：直接覆盖
                     byID[remoteT.id] = remoteT
                 } else {
-                    // 本地更新：检查是否有实质性差异
-                    if hasSubstantiveDiff(localT, remoteT) {
-                        // 生成冲突对：本地标记 conflict=true，保留两份（用不同 UUID）
-                        var conflictCopy = remoteT
-                        conflictCopy.id = UUID()
-                        conflictCopy.isConflict = true
-                        var localMarked = localT
-                        localMarked.isConflict = true
-                        byID[localT.id] = localMarked
-                        byID[conflictCopy.id] = conflictCopy
-                        conflicts.append(ConflictPair(local: localMarked, remote: conflictCopy))
-                    }
+                    // 本地比远端新：本地直接胜出，不产生冲突
+                    // （remote 是上次导出的旧快照，不能覆盖用户刚做的编辑）
                 }
             } else {
                 byID[remoteT.id] = remoteT
@@ -90,7 +80,4 @@ final class SyncEngine: ObservableObject {
         return (Array(byID.values), conflicts)
     }
 
-    private func hasSubstantiveDiff(_ a: Transaction, _ b: Transaction) -> Bool {
-        a.amount != b.amount || a.type != b.type || a.category != b.category || a.note != b.note
-    }
 }

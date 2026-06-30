@@ -31,17 +31,24 @@ struct AdvertisingDetailView: View {
             List {
                 // 总计 banner
                 Section {
-                    HStack {
+                    HStack(spacing: 16) {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("累计广告支出").font(.subheadline).foregroundStyle(.secondary)
-                            Text(vm.totalAdvertising.formatted(.currency(code: "CNY")))
-                                .font(.system(size: 28, weight: .bold, design: .rounded))
+                            Text("本月广告支出").font(.caption).foregroundStyle(.secondary)
+                            Text(vm.thisMonthAdvertising.formatted(.currency(code: "CNY")))
+                                .font(.system(size: 22, weight: .bold, design: .rounded))
                                 .foregroundStyle(.orange)
+                        }
+                        Divider()
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("累计广告支出").font(.caption).foregroundStyle(.secondary)
+                            Text(vm.totalAdvertising.formatted(.currency(code: "CNY")))
+                                .font(.system(size: 22, weight: .bold, design: .rounded))
+                                .foregroundStyle(.orange.opacity(0.8))
                         }
                         Spacer()
                         Image(systemName: "megaphone.fill")
-                            .font(.system(size: 32))
-                            .foregroundStyle(.orange.opacity(0.8))
+                            .font(.system(size: 28))
+                            .foregroundStyle(.orange.opacity(0.7))
                     }
                     .padding(.vertical, 6)
                 }

@@ -258,7 +258,7 @@ struct DashboardView: View {
             HStack(spacing: 10) {
                 SummaryMiniCard(title: "累计收入", amount: vm.totalIncome,  color: .green)
                 SummaryMiniCard(title: "累计支出", amount: vm.totalExpense, color: .red)
-                SummaryMiniCard(title: "广告支出", amount: vm.totalAdvertising, color: .orange)
+                SummaryMiniCard(title: "本月广告", amount: vm.thisMonthAdvertising, color: .orange)
                     .onTapGesture { showAdvertising = true }
             }
         }

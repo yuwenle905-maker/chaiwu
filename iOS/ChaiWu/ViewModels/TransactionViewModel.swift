@@ -31,6 +31,13 @@ final class TransactionViewModel: ObservableObject {
     var totalAdvertising: Decimal {
         advertisingTransactions.reduce(0) { $0 + $1.amount }
     }
+    var thisMonthAdvertising: Decimal {
+        let cal = Calendar.current
+        let now = Date()
+        return advertisingTransactions
+            .filter { cal.isDate($0.date, equalTo: now, toGranularity: .month) }
+            .reduce(0) { $0 + $1.amount }
+    }
 
     init() {
         sync.$conflictCount
