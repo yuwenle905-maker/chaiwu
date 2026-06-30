@@ -120,27 +120,25 @@ final class XlsxManager {
 // MARK: - 轻量 OOXML 生成器
 
 enum OOXMLWriter {
-    static let dateFormatter: ISO8601DateFormatter = {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withFullDate, .withTime, .withColonSeparatorInTime]
+    static let dateFmt: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "zh_CN")
+        f.dateFormat = "M月d日"
         return f
     }()
 
     static func generate(transactions: [Transaction]) throws -> Data {
+        var balance: Decimal = 0
         let rows = transactions.map { t -> String in
-            let date = dateFormatter.string(from: t.date)
-            let modified = dateFormatter.string(from: t.modifiedAt)
+            balance += (t.type == .income ? t.amount : -t.amount)
             return """
             <row>
-              <c t="inlineStr"><is><t>\(date)</t></is></c>
+              <c t="inlineStr"><is><t>\(dateFmt.string(from: t.date))</t></is></c>
               <c t="inlineStr"><is><t>\(t.type.rawValue.xmlEscaped)</t></is></c>
               <c><v>\(t.amount)</v></c>
+              <c><v>\(balance)</v></c>
               <c t="inlineStr"><is><t>\(t.category.rawValue.xmlEscaped)</t></is></c>
               <c t="inlineStr"><is><t>\(t.note.xmlEscaped)</t></is></c>
-              <c t="inlineStr"><is><t>\(t.id.uuidString)</t></is></c>
-              <c t="inlineStr"><is><t>\(modified)</t></is></c>
-              <c t="inlineStr"><is><t>\(t.sourceDevice.xmlEscaped)</t></is></c>
-              <c t="inlineStr"><is><t>\(t.isConflict ? "true" : "false")</t></is></c>
             </row>
             """
         }.joined(separator: "\n")
@@ -150,12 +148,9 @@ enum OOXMLWriter {
           <c t="inlineStr"><is><t>日期</t></is></c>
           <c t="inlineStr"><is><t>类型</t></is></c>
           <c t="inlineStr"><is><t>金额</t></is></c>
+          <c t="inlineStr"><is><t>余额</t></is></c>
           <c t="inlineStr"><is><t>分类</t></is></c>
           <c t="inlineStr"><is><t>备注</t></is></c>
-          <c t="inlineStr"><is><t>UUID</t></is></c>
-          <c t="inlineStr"><is><t>修改时间</t></is></c>
-          <c t="inlineStr"><is><t>来源设备</t></is></c>
-          <c t="inlineStr"><is><t>冲突标记</t></is></c>
         </row>
         """
 
