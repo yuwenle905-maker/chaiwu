@@ -1,0 +1,30 @@
+# Xcode
+*.xcuserstate
+xcuserdata/
+DerivedData/
+*.xcworkspace/xcuserdata/
+.DS_Store
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# .NET / Visual Studio
+bin/
+obj/
+*.user
+.vs/
+publish/
+
+# SQLite
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+
+# Backups (don't commit local backups)
+backups/
+
+# Secrets
+*.p12
+*.mobileprovision
+ExportOptions.plist

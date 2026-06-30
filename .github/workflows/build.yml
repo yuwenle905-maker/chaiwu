@@ -1,0 +1,86 @@
+name: Build & Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  # ─── Windows .exe ───────────────────────────────────────────────
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Publish Windows exe
+        run: |
+          dotnet publish Windows/ChaiWu.Windows/ChaiWu.Windows.csproj `
+            -c Release -r win-x64 --self-contained true `
+            -p:PublishSingleFile=true `
+            -o publish/windows
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ChaiWu-Windows
+          path: publish/windows/ChaiWu.exe
+
+  # ─── iOS .ipa (TrollStore) ──────────────────────────────────────
+  build-ios:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode 15
+        run: sudo xcode-select -s /Applications/Xcode_15.4.app
+
+      - name: Build IPA (no signing — TrollStore)
+        run: |
+          xcodebuild \
+            -project iOS/ChaiWu.xcodeproj \
+            -scheme ChaiWu \
+            -configuration Release \
+            -sdk iphoneos \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            DEVELOPMENT_TEAM="" \
+            -archivePath $RUNNER_TEMP/ChaiWu.xcarchive \
+            archive
+
+          # 手动打包为 IPA（TrollStore 不需要签名）
+          mkdir -p $RUNNER_TEMP/Payload
+          cp -r "$RUNNER_TEMP/ChaiWu.xcarchive/Products/Applications/ChaiWu.app" \
+                "$RUNNER_TEMP/Payload/"
+          cd $RUNNER_TEMP
+          zip -r ChaiWu.ipa Payload/
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ChaiWu-iOS-TrollStore
+          path: ${{ runner.temp }}/ChaiWu.ipa
+
+  # ─── GitHub Release ─────────────────────────────────────────────
+  release:
+    needs: [build-windows, build-ios]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ChaiWu-Windows/ChaiWu.exe
+            ChaiWu-iOS-TrollStore/ChaiWu.ipa
+          generate_release_notes: true
