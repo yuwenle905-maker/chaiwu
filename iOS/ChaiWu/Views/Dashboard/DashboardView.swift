@@ -15,12 +15,27 @@ struct DocumentPickerPresenter: UIViewControllerRepresentable {
     }
 
     func updateUIViewController(_ vc: UIViewController, context: Context) {
-        guard isPresented, vc.presentedViewController == nil else { return }
+        guard isPresented else { return }
+        appLog("updateUIViewController: isPresented=true, 寻找 presenter")
+
+        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let rootVC = windowScene.windows.first(where: { $0.isKeyWindow })?.rootViewController else {
+            appLog("找不到 rootViewController", level: .error)
+            return
+        }
+        var presenter = rootVC
+        while let p = presenter.presentedViewController { presenter = p }
+        guard presenter.presentedViewController == nil else {
+            appLog("presenter 已有弹窗，跳过", level: .warn)
+            return
+        }
+
+        appLog("开始 present 文件选择器")
         let picker = UIDocumentPickerViewController(
             forOpeningContentTypes: [.data, .item], asCopy: true)
         picker.allowsMultipleSelection = false
         picker.delegate = context.coordinator
-        vc.present(picker, animated: true)
+        presenter.present(picker, animated: true)
     }
 
     final class Coordinator: NSObject, UIDocumentPickerDelegate {
@@ -101,7 +116,10 @@ struct DashboardView: View {
                 }
                 ToolbarItem(placement: .topBarLeading) {
                     Menu {
-                        Button(action: { showImportPicker = true }) {
+                        Button(action: {
+                            appLog("用户点击「导入表格」")
+                            showImportPicker = true
+                        }) {
                             Label("导入表格", systemImage: "square.and.arrow.down")
                         }
                         Button(action: { sync.performSync() }) {
