@@ -66,7 +66,8 @@ final class DatabaseManager {
             date=excluded.date, type=excluded.type, amount=excluded.amount,
             category=excluded.category, note=excluded.note,
             modified_at=excluded.modified_at, source_device=excluded.source_device,
-            is_conflict=excluded.is_conflict;
+            is_conflict=excluded.is_conflict
+        WHERE excluded.modified_at >= transactions.modified_at;
         """
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return }
