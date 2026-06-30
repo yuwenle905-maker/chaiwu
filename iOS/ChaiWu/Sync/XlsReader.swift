@@ -412,10 +412,21 @@ extension XlsReader {
         return results
     }
 
+    private static func excelSerialToDate(_ serial: Double) -> Date? {
+        guard serial >= 1 else { return nil }
+        var days = Int(serial)
+        if days >= 60 { days -= 1 } // Excel 1900 虚假闰年补偿
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "Asia/Shanghai") ?? .current
+        guard let base = cal.date(from: DateComponents(year: 1899, month: 12, day: 31)) else { return nil }
+        return cal.date(byAdding: .day, value: days, to: base)
+    }
+
     private static func parseAutoFormat(rows: [[XlsCell]]) -> [Transaction] {
-        // Skip header row if first cell is a string that doesn't look like a date
+        // 跳过表头：首格是字符串且不像日期
         var dataRows = rows
-        if let first = rows.first, let s = first.first?.stringValue, !s.contains("月") && !s.contains("-") {
+        if let first = rows.first, let s = first.first?.stringValue,
+           !s.contains("月") && !s.contains("-") && !s.contains("/") {
             dataRows = Array(rows.dropFirst())
         }
 
@@ -423,13 +434,14 @@ extension XlsReader {
         let now = Date()
         for row in dataRows {
             guard !row.isEmpty else { continue }
-            // Col 0: date string or number
-            // Col 1: amount (number, +/- determines income/expense)
-            // Col 3: note (string)
+            // Col 0: 日期（字符串或 Excel 序列数字）
             var date = now
             if let s = row[safe: 0]?.stringValue {
                 date = parseChineseDate(s) ?? now
+            } else if let n = row[safe: 0]?.numberValue, n > 1 {
+                date = excelSerialToDate(n) ?? now
             }
+            // Col 1: 金额
             guard let amtCell = row[safe: 1], let amtVal = amtCell.numberValue ?? {
                 if case .str(let s) = amtCell, let d = Double(s) { return d }
                 return nil

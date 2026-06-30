@@ -74,6 +74,8 @@ struct DashboardView: View {
     @State private var showConflict = false
     @State private var showImportPicker = false
     @State private var showLog = false
+    @State private var exportURL: URL?
+    @State private var showExportSheet = false
     @State private var selectedFilter: TransactionType? = nil
 
     var filteredTransactions: [Transaction] {
@@ -125,6 +127,9 @@ struct DashboardView: View {
                         Button(action: { sync.performSync() }) {
                             Label("手动同步", systemImage: "arrow.triangle.2.circlepath")
                         }
+                        Button(action: exportXlsx) {
+                            Label("导出表格", systemImage: "square.and.arrow.up")
+                        }
                         Divider()
                         Toggle(isOn: $biometricLockEnabled) {
                             Label("面容/指纹解锁", systemImage: "faceid")
@@ -148,6 +153,37 @@ struct DashboardView: View {
             }
             .sheet(isPresented: $showLog) {
                 LogViewerView()
+            }
+            .sheet(isPresented: $showExportSheet) {
+                if let url = exportURL {
+                    ShareSheet(url: url)
+                }
+            }
+        }
+    }
+
+    private func exportXlsx() {
+        appLog("开始导出表格")
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let tmp = FileManager.default.temporaryDirectory
+                    .appendingPathComponent("chaiwu_export_\(Int(Date().timeIntervalSince1970)).xlsx")
+                try XlsxManager.shared.exportToXlsx(vm.transactions)
+                let src = XlsxManager.shared.xlsxURL
+                if FileManager.default.fileExists(atPath: tmp.path) {
+                    try FileManager.default.removeItem(at: tmp)
+                }
+                try FileManager.default.copyItem(at: src, to: tmp)
+                appLog("导出成功: \(tmp.lastPathComponent)")
+                DispatchQueue.main.async {
+                    self.exportURL = tmp
+                    self.showExportSheet = true
+                }
+            } catch {
+                appLog("导出失败: \(error)", level: .error)
+                DispatchQueue.main.async {
+                    vm.importError = "导出失败：\(error.localizedDescription)"
+                }
             }
         }
     }
@@ -324,4 +360,12 @@ struct TransactionRow: View {
         .background(.background)
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }
+}
+
+struct ShareSheet: UIViewControllerRepresentable {
+    let url: URL
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: [url], applicationActivities: nil)
+    }
+    func updateUIViewController(_ vc: UIActivityViewController, context: Context) {}
 }
