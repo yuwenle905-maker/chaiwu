@@ -60,7 +60,8 @@ final class XlsReader {
         func sectorSlice(_ idx: Int) -> Data {
             let off = 512 + idx * sectorSize
             guard off < data.count else { return Data() }
-            return data[off..<min(off+sectorSize, data.count)]
+            // Data(slice) 复制字节，重置 startIndex 为 0，避免切片偏移导致越界崩溃
+            return Data(data[off..<min(off+sectorSize, data.count)])
         }
 
         // Build FAT from DIFAT array in header (up to 109 entries at offsets 76…)
@@ -145,9 +146,9 @@ final class XlsReader {
         // Find "Workbook" or "Book" stream
         for entry in entries where entry.type == 2 && (entry.name == "Workbook" || entry.name == "Book") {
             if entry.size < miniCutoff && !miniFAT.isEmpty {
-                return miniChain(entry.start).prefix(entry.size)
+                return Data(miniChain(entry.start).prefix(entry.size))
             } else {
-                return chain(entry.start).prefix(entry.size)
+                return Data(chain(entry.start).prefix(entry.size))
             }
         }
         throw XlsReaderError.corrupted("No Workbook stream found")
@@ -178,17 +179,17 @@ final class XlsReader {
             return rk & 1 != 0 ? v / 100 : v
         }
 
-        // Read BIFF8 Unicode string: cch chars, flags byte, then chars
-        func biffStr(at pos: Int, cch: Int, highByte: Bool) -> String {
+        // Read BIFF8 Unicode string from buf starting at pos (buf must have startIndex==0)
+        func biffStr(buf: Data, at pos: Int, cch: Int, highByte: Bool) -> String {
             if highByte {
                 var chars = [UInt16]()
                 for i in 0..<cch {
                     let p = pos + i*2
-                    if p+1 < stream.count { chars.append(UInt16(stream[p]) | (UInt16(stream[p+1])<<8)) }
+                    if p+1 < buf.count { chars.append(UInt16(buf[p]) | (UInt16(buf[p+1])<<8)) }
                 }
                 return String(String.UnicodeScalarView(chars.compactMap { UnicodeScalar($0) }))
             } else {
-                let bytes = (0..<cch).compactMap { pos+$0 < stream.count ? stream[pos+$0] : nil }
+                let bytes = (0..<cch).compactMap { pos+$0 < buf.count ? buf[pos+$0] : nil }
                 return String(bytes: bytes, encoding: .isoLatin1) ?? String(bytes: bytes, encoding: .utf8) ?? ""
             }
         }
@@ -200,7 +201,7 @@ final class XlsReader {
             let rt = w(pos); let rs = w(pos+2)
             let start = pos+4; let end = start+rs
             guard end <= stream.count else { break }
-            records.append((rt, stream[start..<end]))
+            records.append((rt, Data(stream[start..<end])))
             pos = end
         }
 
@@ -240,8 +241,7 @@ final class XlsReader {
                     let rt2   = rich ? (Int(sd[p]) | (Int(sd[p+1])<<8)) : 0; if rich { p += 2 }
                     let esz   = ext  ? (Int(sd[p]) | (Int(sd[p+1])<<8) | (Int(sd[p+2])<<16) | (Int(sd[p+3])<<24)) : 0; if ext { p += 4 }
                     let bytes = hi ? cch*2 : cch
-                    let absP = sd.startIndex + p
-                    sst.append(biffStr(at: absP, cch: cch, highByte: hi))
+                    sst.append(biffStr(buf: sd, at: p, cch: cch, highByte: hi))
                     p += bytes
                     if rich { p += rt2*4 }
                     if ext  { p += esz }
