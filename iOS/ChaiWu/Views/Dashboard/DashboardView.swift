@@ -88,7 +88,7 @@ struct DashboardView: View {
                     .foregroundStyle(.secondary)
                 Text(vm.totalBalance.formatted(.currency(code: "CNY")))
                     .font(.system(size: 38, weight: .bold, design: .rounded))
-                    .foregroundStyle(vm.totalBalance >= 0 ? .primary : .red)
+                    .foregroundStyle(vm.totalBalance >= 0 ? Color.primary : Color.red)
             }
             .frame(maxWidth: .infinity)
             .padding(20)

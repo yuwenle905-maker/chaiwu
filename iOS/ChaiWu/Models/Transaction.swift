@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 enum TransactionType: String, Codable, CaseIterable {
     case income = "收入"

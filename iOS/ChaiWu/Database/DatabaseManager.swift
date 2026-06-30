@@ -1,6 +1,9 @@
 import Foundation
 import SQLite3
 
+// SQLITE_TRANSIENT 在 Swift 中需要手动定义
+private let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+
 final class DatabaseManager {
     static let shared = DatabaseManager()
     private var db: OpaquePointer?

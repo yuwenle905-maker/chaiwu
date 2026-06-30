@@ -169,7 +169,7 @@ enum OOXMLWriter {
         </Relationships>
         """
 
-        var files: [(path: String, data: Data)] = [
+        let files: [(path: String, data: Data)] = [
             ("[Content_Types].xml", Data(contentTypes.utf8)),
             ("_rels/.rels", Data(relsXML.utf8)),
             ("xl/workbook.xml", Data(workbookXML.utf8)),

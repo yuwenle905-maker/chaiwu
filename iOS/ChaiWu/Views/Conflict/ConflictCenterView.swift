@@ -8,8 +8,17 @@ struct ConflictCenterView: View {
         NavigationStack {
             Group {
                 if vm.conflicts.isEmpty {
-                    ContentUnavailableView("没有数据冲突", systemImage: "checkmark.shield.fill",
-                                          description: Text("所有数据已同步一致"))
+                    VStack(spacing: 16) {
+                        Spacer()
+                        Image(systemName: "checkmark.shield.fill")
+                            .font(.system(size: 56))
+                            .foregroundStyle(.green)
+                        Text("没有数据冲突")
+                            .font(.title2.weight(.semibold))
+                        Text("所有数据已同步一致")
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                    }
                 } else {
                     List {
                         ForEach(conflictPairs, id: \.0.id) { local, remote in

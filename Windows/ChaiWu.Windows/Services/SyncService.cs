@@ -72,11 +72,17 @@ public class SyncService
                 }
                 else if (HasSubstantiveDiff(localT, remoteT))
                 {
-                    var conflictCopy = remoteT with { Id = Guid.NewGuid(), IsConflict = true };
-                    var localMarked = localT with { IsConflict = true };
-                    byId[localT.Id] = localMarked;
+                    var conflictCopy = new Transaction
+                    {
+                        Id = Guid.NewGuid(), Date = remoteT.Date, Type = remoteT.Type,
+                        Amount = remoteT.Amount, Category = remoteT.Category, Note = remoteT.Note,
+                        ModifiedAt = remoteT.ModifiedAt, SourceDevice = remoteT.SourceDevice,
+                        IsConflict = true
+                    };
+                    localT.IsConflict = true;
+                    byId[localT.Id] = localT;
                     byId[conflictCopy.Id] = conflictCopy;
-                    conflicts.Add(new ConflictPair(localMarked, conflictCopy));
+                    conflicts.Add(new ConflictPair(localT, conflictCopy));
                 }
             }
             else
