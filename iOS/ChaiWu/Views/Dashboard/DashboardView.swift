@@ -2,29 +2,43 @@ import SwiftUI
 import UniformTypeIdentifiers
 import UIKit
 
-// MARK: - UIDocumentPickerViewController 包装（绕过 SwiftUI 多 sheet bug）
+// MARK: - 文件选择器（直接用 UIKit present，绕开 SwiftUI 多 sheet bug）
 
-struct DocumentPicker: UIViewControllerRepresentable {
+struct DocumentPickerPresenter: UIViewControllerRepresentable {
+    @Binding var isPresented: Bool
     let onPick: (URL) -> Void
 
-    func makeCoordinator() -> Coordinator { Coordinator(onPick: onPick) }
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
 
-    func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
-        let types: [UTType] = [.data, .item]
-        let vc = UIDocumentPickerViewController(forOpeningContentTypes: types, asCopy: true)
-        vc.allowsMultipleSelection = false
-        vc.delegate = context.coordinator
-        return vc
+    func makeUIViewController(context: Context) -> UIViewController {
+        context.coordinator.host
     }
 
-    func updateUIViewController(_ uiViewController: UIDocumentPickerViewController, context: Context) {}
+    func updateUIViewController(_ vc: UIViewController, context: Context) {
+        guard isPresented, vc.presentedViewController == nil else { return }
+        let picker = UIDocumentPickerViewController(
+            forOpeningContentTypes: [.data, .item], asCopy: true)
+        picker.allowsMultipleSelection = false
+        picker.delegate = context.coordinator
+        vc.present(picker, animated: true)
+    }
 
-    class Coordinator: NSObject, UIDocumentPickerDelegate {
-        let onPick: (URL) -> Void
-        init(onPick: @escaping (URL) -> Void) { self.onPick = onPick }
+    final class Coordinator: NSObject, UIDocumentPickerDelegate {
+        var parent: DocumentPickerPresenter
+        let host = UIViewController()
 
-        func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
-            if let url = urls.first { onPick(url) }
+        init(_ p: DocumentPickerPresenter) { parent = p }
+
+        func documentPicker(_ c: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+            parent.isPresented = false
+            if let url = urls.first {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    self.parent.onPick(url)
+                }
+            }
+        }
+        func documentPickerWasCancelled(_ c: UIDocumentPickerViewController) {
+            parent.isPresented = false
         }
     }
 }
@@ -34,6 +48,8 @@ struct DocumentPicker: UIViewControllerRepresentable {
 struct DashboardView: View {
     @EnvironmentObject var vm: TransactionViewModel
     @EnvironmentObject var sync: SyncEngine
+    @AppStorage("biometricLockEnabled") private var biometricLockEnabled = false
+
     @State private var showEntry = false
     @State private var editingTransaction: Transaction?
     @State private var showConflict = false
@@ -61,6 +77,13 @@ struct DashboardView: View {
                 .padding(.top, 8)
             }
             .background(Color(.systemGroupedBackground))
+            // 隐藏的 UIViewController，专门用来 present 文件选择器
+            .background(
+                DocumentPickerPresenter(isPresented: $showImportPicker) { url in
+                    vm.importXlsx(from: url)
+                }
+                .frame(width: 0, height: 0)
+            )
             .navigationTitle("账单")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
@@ -79,12 +102,15 @@ struct DashboardView: View {
                         Button(action: { sync.performSync() }) {
                             Label("手动同步", systemImage: "arrow.triangle.2.circlepath")
                         }
+                        Divider()
+                        Toggle(isOn: $biometricLockEnabled) {
+                            Label("面容/指纹解锁", systemImage: "faceid")
+                        }
                     } label: {
                         Image(systemName: "ellipsis.circle")
                     }
                 }
             }
-            // 把所有 sheet 合并成一个，避免多 sheet 互斥导致 fileImporter 回调失效
             .sheet(isPresented: $showEntry) {
                 EntryView().environmentObject(vm)
             }
@@ -93,13 +119,6 @@ struct DashboardView: View {
             }
             .sheet(isPresented: $showConflict) {
                 ConflictCenterView().environmentObject(vm)
-            }
-            // 用 UIDocumentPickerViewController 替代 .fileImporter，避免 SwiftUI 多 sheet bug
-            .sheet(isPresented: $showImportPicker) {
-                DocumentPicker { url in
-                    showImportPicker = false
-                    vm.importXlsx(from: url)
-                }
             }
         }
     }

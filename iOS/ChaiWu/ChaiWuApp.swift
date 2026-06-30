@@ -4,16 +4,24 @@ import SwiftUI
 struct ChaiWuApp: App {
     @StateObject private var vm = TransactionViewModel()
     @StateObject private var sync = SyncEngine.shared
+    @AppStorage("biometricLockEnabled") private var biometricLockEnabled = false
 
     var body: some Scene {
         WindowGroup {
-            if vm.isUnlocked {
+            if biometricLockEnabled && !vm.isUnlocked {
+                LockScreenView()
+                    .environmentObject(vm)
+            } else {
                 DashboardView()
                     .environmentObject(vm)
                     .environmentObject(sync)
-            } else {
-                LockScreenView()
-                    .environmentObject(vm)
+                    .onAppear {
+                        if !vm.isUnlocked {
+                            vm.isUnlocked = true
+                            vm.reload()
+                            SyncEngine.shared.startWatching()
+                        }
+                    }
             }
         }
     }
@@ -28,7 +36,7 @@ struct LockScreenView: View {
             Image(systemName: "lock.shield.fill")
                 .font(.system(size: 72))
                 .foregroundStyle(.blue.gradient)
-            Text("柴务")
+            Text("账单")
                 .font(.largeTitle.bold())
             Text("个人财务管理")
                 .foregroundStyle(.secondary)
