@@ -14,14 +14,14 @@ enum ZipArchiveBuilder {
             localFileOffsets.append(offset)
 
             let nameData = Data(file.path.utf8)
-            let compressedData = compress(file.data)
+            let compressedData = file.data  // STORE: no compression
             let crc = crc32(file.data)
 
             // Local file header
             archive += uint32LE(0x04034b50) // signature
             archive += uint16LE(20)          // version needed
             archive += uint16LE(0)           // flags
-            archive += uint16LE(8)           // compression: DEFLATE
+            archive += uint16LE(0)           // compression: STORE
             archive += uint16LE(0)           // mod time
             archive += uint16LE(0)           // mod date
             archive += uint32LE(crc)
@@ -38,7 +38,7 @@ enum ZipArchiveBuilder {
             cd += uint16LE(20) // version made by
             cd += uint16LE(20) // version needed
             cd += uint16LE(0)  // flags
-            cd += uint16LE(8)  // compression
+            cd += uint16LE(0)  // compression: STORE
             cd += uint16LE(0)  // mod time
             cd += uint16LE(0)  // mod date
             cd += uint32LE(crc)
