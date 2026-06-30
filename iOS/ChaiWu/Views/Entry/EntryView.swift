@@ -4,16 +4,27 @@ struct EntryView: View {
     @EnvironmentObject var vm: TransactionViewModel
     @Environment(\.dismiss) private var dismiss
 
-    @State private var type: TransactionType = .expense
-    @State private var amountText = ""
-    @State private var category: TransactionCategory = .advertising
-    @State private var note = ""
-    @State private var date = Date()
+    // 编辑模式传入已有账单；nil 表示新增
+    var editing: Transaction?
+
+    @State private var type: TransactionType
+    @State private var amountText: String
+    @State private var category: TransactionCategory
+    @State private var note: String
+    @State private var date: Date
     @State private var showError = false
+
+    init(editing: Transaction? = nil) {
+        self.editing = editing
+        _type        = State(initialValue: editing?.type ?? .expense)
+        _amountText  = State(initialValue: editing.map { "\($0.amount)" } ?? "")
+        _category    = State(initialValue: editing?.category ?? .advertising)
+        _note        = State(initialValue: editing?.note ?? "")
+        _date        = State(initialValue: editing?.date ?? Date())
+    }
 
     var amount: Decimal? { Decimal(string: amountText) }
 
-    // 根据收支类型动态显示分类
     var availableCategories: [TransactionCategory] {
         TransactionCategory.categories(for: type)
     }
@@ -21,7 +32,6 @@ struct EntryView: View {
     var body: some View {
         NavigationStack {
             Form {
-                // 收/支切换
                 Section {
                     Picker("类型", selection: $type) {
                         ForEach(TransactionType.allCases, id: \.self) { t in
@@ -30,8 +40,9 @@ struct EntryView: View {
                     }
                     .pickerStyle(.segmented)
                     .onChange(of: type) { _ in
-                        // 切换类型时重置分类到第一项
-                        category = availableCategories[0]
+                        if !availableCategories.contains(category) {
+                            category = availableCategories[0]
+                        }
                     }
                 }
 
@@ -67,7 +78,7 @@ struct EntryView: View {
                         .labelsHidden()
                 }
             }
-            .navigationTitle("新增账单")
+            .navigationTitle(editing == nil ? "新增账单" : "编辑账单")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -87,7 +98,13 @@ struct EntryView: View {
 
     private func save() {
         guard let amt = amount, amt > 0 else { showError = true; return }
-        vm.add(type: type, amount: amt, category: category, note: note)
+        if var t = editing {
+            t.type = type; t.amount = amt; t.category = category
+            t.note = note; t.date = date
+            vm.update(t)
+        } else {
+            vm.add(type: type, amount: amt, category: category, note: note, date: date)
+        }
         dismiss()
     }
 }

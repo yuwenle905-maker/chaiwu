@@ -5,6 +5,7 @@ struct DashboardView: View {
     @EnvironmentObject var vm: TransactionViewModel
     @EnvironmentObject var sync: SyncEngine
     @State private var showEntry = false
+    @State private var editingTransaction: Transaction?
     @State private var showConflict = false
     @State private var showImportPicker = false
     @State private var selectedFilter: TransactionType? = nil
@@ -13,6 +14,17 @@ struct DashboardView: View {
         guard let f = selectedFilter else { return vm.transactions }
         return vm.transactions.filter { $0.type == f }
     }
+
+    // 支持 xlsx / xls / csv / numbers 等主流格式
+    private static let importTypes: [UTType] = [
+        UTType(filenameExtension: "xlsx") ?? .data,
+        UTType(filenameExtension: "xls")  ?? .data,
+        UTType(filenameExtension: "csv")  ?? .commaSeparatedText,
+        UTType(filenameExtension: "numbers") ?? .data,
+        .spreadsheet,
+        .commaSeparatedText,
+        .data,
+    ]
 
     var body: some View {
         NavigationStack {
@@ -43,7 +55,7 @@ struct DashboardView: View {
                 ToolbarItem(placement: .topBarLeading) {
                     Menu {
                         Button(action: { showImportPicker = true }) {
-                            Label("导入 xlsx", systemImage: "square.and.arrow.down")
+                            Label("导入表格", systemImage: "square.and.arrow.down")
                         }
                         Button(action: { sync.performSync() }) {
                             Label("手动同步", systemImage: "arrow.triangle.2.circlepath")
@@ -56,12 +68,15 @@ struct DashboardView: View {
             .sheet(isPresented: $showEntry) {
                 EntryView().environmentObject(vm)
             }
+            .sheet(item: $editingTransaction) { t in
+                EntryView(editing: t).environmentObject(vm)
+            }
             .sheet(isPresented: $showConflict) {
                 ConflictCenterView().environmentObject(vm)
             }
             .fileImporter(
                 isPresented: $showImportPicker,
-                allowedContentTypes: [UTType(filenameExtension: "xlsx") ?? .data],
+                allowedContentTypes: Self.importTypes,
                 allowsMultipleSelection: false
             ) { result in
                 switch result {
@@ -150,10 +165,17 @@ struct DashboardView: View {
         LazyVStack(spacing: 8) {
             ForEach(filteredTransactions) { t in
                 TransactionRow(transaction: t)
+                    .onTapGesture { editingTransaction = t }
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                         Button(role: .destructive) { vm.delete(t) } label: {
                             Label("删除", systemImage: "trash")
                         }
+                    }
+                    .swipeActions(edge: .leading) {
+                        Button { editingTransaction = t } label: {
+                            Label("编辑", systemImage: "pencil")
+                        }
+                        .tint(.blue)
                     }
             }
         }
@@ -207,17 +229,19 @@ struct TransactionRow: View {
     }()
 
     var body: some View {
-        HStack(spacing: 12) {
-            // 日期列
-            VStack(spacing: 2) {
+        HStack(spacing: 10) {
+            // 日期列：缩小字体，固定宽度适应 MM-dd
+            VStack(spacing: 1) {
                 Text(Self.dateFmt.string(from: transaction.date))
-                    .font(.system(size: 15, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.primary)
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.secondary)
+                    .minimumScaleFactor(0.8)
+                    .lineLimit(1)
             }
-            .frame(width: 44)
+            .frame(width: 36)
 
             // 分类 + 备注
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(transaction.category.rawValue)
                     .font(.subheadline.weight(.medium))
                 if !transaction.note.isEmpty {

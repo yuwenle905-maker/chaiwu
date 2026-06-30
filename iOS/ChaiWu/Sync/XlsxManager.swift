@@ -52,12 +52,34 @@ final class XlsxManager {
         }
     }
 
-    // MARK: - 导入（读取 xlsx）
+    // MARK: - 导入（读取 xlsx / xls / csv）
 
     func importFromXlsx() throws -> [Transaction] {
         guard FileManager.default.fileExists(atPath: xlsxURL.path) else { return [] }
         let data = try Data(contentsOf: xlsxURL)
         return try OOXMLReader.parse(data: data)
+    }
+
+    func importAny(from url: URL) throws -> [Transaction] {
+        let ext = url.pathExtension.lowercased()
+        let data = try Data(contentsOf: url)
+        switch ext {
+        case "xlsx":
+            return try OOXMLReader.parse(data: data)
+        case "xls":
+            let rows = try XlsReader.parse(data: data)
+            return XlsReader.rowsToTransactions(rows)
+        case "csv":
+            return try CSVImporter.parse(data: data)
+        default:
+            // Try xlsx first, then xls, then CSV
+            if let ts = try? OOXMLReader.parse(data: data), !ts.isEmpty { return ts }
+            if let rows = try? XlsReader.parse(data: data) {
+                let ts = XlsReader.rowsToTransactions(rows)
+                if !ts.isEmpty { return ts }
+            }
+            return try CSVImporter.parse(data: data)
+        }
     }
 
     // MARK: - 备份（最多保留 30 份）
@@ -246,6 +268,117 @@ enum OOXMLReader {
             ))
         }
         return transactions
+    }
+}
+
+// MARK: - CSV 导入器
+
+enum CSVImporter {
+    static func parse(data: Data) throws -> [Transaction] {
+        let encoding: String.Encoding = data.prefix(3) == Data([0xEF,0xBB,0xBF]) ? .utf8 : .utf8
+        guard var text = String(data: data, encoding: encoding)
+                      ?? String(data: data, encoding: .isoLatin1) else {
+            throw SyncError.parseError("CSV 编码无法识别")
+        }
+        // Remove BOM
+        if text.hasPrefix("\u{FEFF}") { text.removeFirst() }
+        let lines = text.components(separatedBy: .newlines).filter { !$0.isEmpty }
+        guard lines.count >= 2 else { return [] }
+
+        func splitCSV(_ line: String) -> [String] {
+            var fields = [String](); var cur = ""; var inQ = false
+            for ch in line {
+                if ch == "\"" { inQ.toggle() }
+                else if ch == "," && !inQ { fields.append(cur); cur = "" }
+                else { cur.append(ch) }
+            }
+            fields.append(cur)
+            return fields.map { $0.trimmingCharacters(in: .whitespaces) }
+        }
+
+        let header = splitCSV(lines[0]).map { $0.lowercased() }
+        let hasAppFormat = header.contains("uuid") || header.contains("类型")
+
+        if hasAppFormat {
+            return parseAppCSV(lines: lines, splitCSV: splitCSV)
+        } else {
+            return parseAutoCSV(lines: lines, splitCSV: splitCSV)
+        }
+    }
+
+    private static func parseAppCSV(lines: [String], splitCSV: (String) -> [String]) -> [Transaction] {
+        let iso = ISO8601DateFormatter()
+        var results = [Transaction]()
+        for line in lines.dropFirst() {
+            let f = splitCSV(line)
+            guard f.count >= 9,
+                  let date     = iso.date(from: f[0]),
+                  let type     = TransactionType(rawValue: f[1]),
+                  let amount   = Decimal(string: f[2]),
+                  let category = TransactionCategory(rawValue: f[3]),
+                  let id       = UUID(uuidString: f[5]),
+                  let modified = iso.date(from: f[6]) else { continue }
+            results.append(Transaction(id: id, date: date, type: type, amount: amount,
+                                       category: category, note: f[4],
+                                       modifiedAt: modified, sourceDevice: f[7],
+                                       isConflict: f[8] == "true"))
+        }
+        return results
+    }
+
+    private static func parseAutoCSV(lines: [String], splitCSV: (String) -> [String]) -> [Transaction] {
+        var dataLines = lines
+        let first = splitCSV(lines[0])
+        if let s = first.first, !s.contains("月") { dataLines = Array(lines.dropFirst()) }
+
+        var results = [Transaction]()
+        let now = Date()
+        for line in dataLines {
+            let f = splitCSV(line)
+            guard f.count >= 2 else { continue }
+            let dateStr = f[0]
+            guard let amtVal = Double(f[1].replacingOccurrences(of: ",", with: "")) else { continue }
+            let note = f.count >= 4 ? f[3] : (f.count >= 3 ? f[2] : "")
+            let date = parseChineseDate(dateStr) ?? now
+            let type: TransactionType = amtVal >= 0 ? .income : .expense
+            guard let amount = Decimal(string: String(format: "%.2f", abs(amtVal))) else { continue }
+            let category = guessCategory(note: note, isIncome: amtVal >= 0)
+            results.append(Transaction(date: date, type: type, amount: amount,
+                                       category: category, note: note,
+                                       sourceDevice: "CSV导入"))
+        }
+        return results
+    }
+
+    private static func parseChineseDate(_ s: String) -> Date? {
+        let pat = try? NSRegularExpression(pattern: #"(\d{1,2})月(\d{1,2})日"#)
+        let ns = s as NSString
+        if let m = pat?.firstMatch(in: s, range: NSRange(location: 0, length: ns.length)) {
+            let mo = ns.substring(with: m.range(at: 1))
+            let dy = ns.substring(with: m.range(at: 2))
+            var c = Calendar.current; c.timeZone = TimeZone(identifier: "Asia/Shanghai")!
+            var comps = DateComponents(); comps.year = 2026; comps.month = Int(mo); comps.day = Int(dy)
+            return c.date(from: comps)
+        }
+        let iso = ISO8601DateFormatter()
+        if let d = iso.date(from: s) { return d }
+        let df = DateFormatter(); df.dateFormat = "yyyy-MM-dd"
+        return df.date(from: s)
+    }
+
+    private static func guessCategory(note: String, isIncome: Bool) -> TransactionCategory {
+        if isIncome {
+            if note.contains("快递") { return .expressRefund }
+            if note.contains("尾款") { return .clientBalance }
+            return .clientDeposit
+        } else {
+            if note.contains("底薪") { return .baseSalary }
+            if note.contains("绩效") { return .performance }
+            if note.contains("物业") || note.contains("电费") || note.contains("房") { return .rent }
+            if note.contains("资料") || note.contains("物流") { return .logistics }
+            if note.contains("广告") { return .advertising }
+            return .custom
+        }
     }
 }
 

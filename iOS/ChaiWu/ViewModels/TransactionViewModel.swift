@@ -57,11 +57,20 @@ final class TransactionViewModel: ObservableObject {
         conflicts    = all.filter {  $0.isConflict }
     }
 
-    func add(type: TransactionType, amount: Decimal, category: TransactionCategory, note: String) {
-        let t = Transaction(type: type, amount: amount, category: category, note: note)
+    func add(type: TransactionType, amount: Decimal, category: TransactionCategory,
+             note: String, date: Date = Date()) {
+        let t = Transaction(date: date, type: type, amount: amount, category: category, note: note)
         db.upsert(t)
-        reload()                  // 立即刷新 UI
-        sync.performSync()        // 异步同步到 xlsx
+        reload()
+        sync.performSync()
+    }
+
+    func update(_ transaction: Transaction) {
+        var t = transaction
+        t.modifiedAt = Date()
+        db.upsert(t)
+        reload()
+        sync.performSync()
     }
 
     func delete(_ transaction: Transaction) {
@@ -76,7 +85,7 @@ final class TransactionViewModel: ObservableObject {
         sync.performSync()
     }
 
-    // MARK: - 导入 xlsx
+    // MARK: - 导入表格（xlsx / xls / csv）
 
     func importXlsx(from url: URL) {
         importError = nil
@@ -84,12 +93,10 @@ final class TransactionViewModel: ObservableObject {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self else { return }
             do {
-                // 安全访问沙盒外文件（Files App 选取）
                 let accessed = url.startAccessingSecurityScopedResource()
                 defer { if accessed { url.stopAccessingSecurityScopedResource() } }
 
-                let data = try Data(contentsOf: url)
-                let imported = try OOXMLReader.parse(data: data)
+                let imported = try XlsxManager.shared.importAny(from: url)
                 self.db.batchUpsert(imported)
 
                 DispatchQueue.main.async {

@@ -18,6 +18,7 @@
 		AA00002100000000000000AA /* EntryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00002000000000000000AA /* EntryView.swift */; };
 		AA00002300000000000000AA /* ConflictCenterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00002200000000000000AA /* ConflictCenterView.swift */; };
 		AA00002500000000000000AA /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA00002400000000000000AA /* Assets.xcassets */; };
+		AA00002700000000000000AA /* XlsReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00002600000000000000AA /* XlsReader.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -27,6 +28,7 @@
 		AA00001400000000000000AA /* DatabaseManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseManager.swift; sourceTree = "<group>"; };
 		AA00001600000000000000AA /* XlsxManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XlsxManager.swift; sourceTree = "<group>"; };
 		AA00001800000000000000AA /* ZipArchiveBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZipArchiveBuilder.swift; sourceTree = "<group>"; };
+		AA00002600000000000000AA /* XlsReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XlsReader.swift; sourceTree = "<group>"; };
 		AA00001A00000000000000AA /* SyncEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncEngine.swift; sourceTree = "<group>"; };
 		AA00001C00000000000000AA /* TransactionViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransactionViewModel.swift; sourceTree = "<group>"; };
 		AA00001E00000000000000AA /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
@@ -97,6 +99,7 @@
 			children = (
 				AA00001600000000000000AA /* XlsxManager.swift */,
 				AA00001800000000000000AA /* ZipArchiveBuilder.swift */,
+				AA00002600000000000000AA /* XlsReader.swift */,
 				AA00001A00000000000000AA /* SyncEngine.swift */,
 			);
 			path = Sync;
@@ -219,6 +222,7 @@
 				AA00001500000000000000AA /* DatabaseManager.swift in Sources */,
 				AA00001700000000000000AA /* XlsxManager.swift in Sources */,
 				AA00001900000000000000AA /* ZipArchiveBuilder.swift in Sources */,
+				AA00002700000000000000AA /* XlsReader.swift in Sources */,
 				AA00001B00000000000000AA /* SyncEngine.swift in Sources */,
 				AA00001D00000000000000AA /* TransactionViewModel.swift in Sources */,
 				AA00001F00000000000000AA /* DashboardView.swift in Sources */,
