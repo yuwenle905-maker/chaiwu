@@ -31,8 +31,8 @@
 		AA00001600000000000000AA /* XlsxManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XlsxManager.swift; sourceTree = "<group>"; };
 		AA00001800000000000000AA /* ZipArchiveBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZipArchiveBuilder.swift; sourceTree = "<group>"; };
 		AA00002600000000000000AA /* XlsReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XlsReader.swift; sourceTree = "<group>"; };
-		AA00002800000000000000AA /* AppLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChaiWu/Utils/AppLogger.swift; sourceTree = "<group>"; };
-		AA00002A00000000000000AA /* LogViewerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChaiWu/Views/LogViewer/LogViewerView.swift; sourceTree = "<group>"; };
+		AA00002800000000000000AA /* AppLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLogger.swift; sourceTree = "<group>"; };
+		AA00002A00000000000000AA /* LogViewerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogViewerView.swift; sourceTree = "<group>"; };
 		AA00001A00000000000000AA /* SyncEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncEngine.swift; sourceTree = "<group>"; };
 		AA00001C00000000000000AA /* TransactionViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransactionViewModel.swift; sourceTree = "<group>"; };
 		AA00001E00000000000000AA /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
@@ -78,6 +78,7 @@
 				AA00003300000000000000AA /* Sync */,
 				AA00003400000000000000AA /* ViewModels */,
 				AA00003500000000000000AA /* Views */,
+				AA00003900000000000000AA /* Utils */,
 			);
 			path = ChaiWu;
 			sourceTree = "<group>";
@@ -123,6 +124,7 @@
 				AA00003600000000000000AA /* Dashboard */,
 				AA00003700000000000000AA /* Entry */,
 				AA00003800000000000000AA /* Conflict */,
+				AA00003A00000000000000AA /* LogViewer */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -149,6 +151,22 @@
 				AA00002200000000000000AA /* ConflictCenterView.swift */,
 			);
 			path = Conflict;
+			sourceTree = "<group>";
+		};
+		AA00003900000000000000AA /* Utils */ = {
+			isa = PBXGroup;
+			children = (
+				AA00002800000000000000AA /* AppLogger.swift */,
+			);
+			path = Utils;
+			sourceTree = "<group>";
+		};
+		AA00003A00000000000000AA /* LogViewer */ = {
+			isa = PBXGroup;
+			children = (
+				AA00002A00000000000000AA /* LogViewerView.swift */,
+			);
+			path = LogViewer;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
