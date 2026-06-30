@@ -1,0 +1,78 @@
+<Window x:Class="ChaiWu.Windows.Views.AddTransactionWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="新增记录" Height="380" Width="380"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
+        Background="#F5F5F7">
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 类型 -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,16">
+            <TextBlock Text="类型" FontSize="12" Foreground="#8E8E93" Margin="0,0,0,6"/>
+            <StackPanel Orientation="Horizontal">
+                <RadioButton x:Name="RbExpense" Content="支出" IsChecked="True" Margin="0,0,16,0" FontSize="14"/>
+                <RadioButton x:Name="RbIncome" Content="收入" FontSize="14"/>
+            </StackPanel>
+        </StackPanel>
+
+        <!-- 金额 -->
+        <StackPanel Grid.Row="1" Margin="0,0,0,16">
+            <TextBlock Text="金额（元）" FontSize="12" Foreground="#8E8E93" Margin="0,0,0,6"/>
+            <TextBox x:Name="TbAmount" FontSize="22" FontWeight="Bold" Padding="8,6"
+                     BorderBrush="#D1D1D6" BorderThickness="1"/>
+        </StackPanel>
+
+        <!-- 分类 -->
+        <StackPanel Grid.Row="2" Margin="0,0,0,16">
+            <TextBlock Text="分类" FontSize="12" Foreground="#8E8E93" Margin="0,0,0,6"/>
+            <ComboBox x:Name="CbCategory" FontSize="14" Padding="8,6"
+                      BorderBrush="#D1D1D6"/>
+        </StackPanel>
+
+        <!-- 日期 -->
+        <StackPanel Grid.Row="3" Margin="0,0,0,16">
+            <TextBlock Text="日期" FontSize="12" Foreground="#8E8E93" Margin="0,0,0,6"/>
+            <DatePicker x:Name="DpDate" FontSize="14" Padding="4,4"/>
+        </StackPanel>
+
+        <!-- 备注 -->
+        <StackPanel Grid.Row="4" Margin="0,0,0,16">
+            <TextBlock Text="备注（可选）" FontSize="12" Foreground="#8E8E93" Margin="0,0,0,6"/>
+            <TextBox x:Name="TbNote" FontSize="14" Padding="8,6"
+                     BorderBrush="#D1D1D6" BorderThickness="1"/>
+        </StackPanel>
+
+        <!-- 按钮 -->
+        <StackPanel Grid.Row="6" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="取消" Width="80" Padding="0,8" Margin="0,0,12,0"
+                    Click="Cancel_Click" Background="#E5E5EA" BorderThickness="0">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="8" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Button.Template>
+            </Button>
+            <Button Content="保存" Width="80" Padding="0,8"
+                    Click="Save_Click" Background="#007AFF" Foreground="White" BorderThickness="0">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="8" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Button.Template>
+            </Button>
+        </StackPanel>
+    </Grid>
+</Window>

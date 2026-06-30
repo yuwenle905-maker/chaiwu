@@ -1,5 +1,6 @@
 using ChaiWu.Windows.Models;
 using ChaiWu.Windows.Services;
+using ChaiWu.Windows.Views;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using System;
@@ -7,6 +8,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Windows;
 
 namespace ChaiWu.Windows.ViewModels;
 
@@ -58,6 +60,13 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(HasConflicts));
     }
 
+    private async Task AddTransactionAsync(Transaction t)
+    {
+        _db.Upsert(t);
+        Reload();
+        await Task.Run(_sync.PerformSync);
+    }
+
     [RelayCommand]
     private async Task AddTransaction(Transaction t)
     {
@@ -80,6 +89,21 @@ public partial class MainViewModel : ObservableObject
         _db.ResolveConflict(pair.keep.Id, pair.discard.Id);
         Reload();
         await Task.Run(_sync.PerformSync);
+    }
+
+    [RelayCommand]
+    private void ShowAddDialog()
+    {
+        var win = new AddTransactionWindow { Owner = Application.Current.MainWindow };
+        if (win.ShowDialog() == true && win.Result != null)
+            _ = AddTransactionAsync(win.Result);
+    }
+
+    [RelayCommand]
+    private void OpenConflictCenter()
+    {
+        var win = new ConflictCenterWindow(this) { Owner = Application.Current.MainWindow };
+        win.ShowDialog();
     }
 
     [RelayCommand]

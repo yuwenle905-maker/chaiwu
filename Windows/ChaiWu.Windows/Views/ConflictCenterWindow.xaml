@@ -1,0 +1,89 @@
+<Window x:Class="ChaiWu.Windows.Views.ConflictCenterWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="冲突处理中心" Height="500" Width="700"
+        WindowStartupLocation="CenterOwner"
+        Background="#F5F5F7">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Text="冲突处理中心" FontSize="18" FontWeight="Bold" Margin="0,0,0,16"/>
+
+        <ItemsControl Grid.Row="1" x:Name="ConflictList">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Border Background="White" CornerRadius="10" Padding="16" Margin="0,0,0,12">
+                        <Border.Effect>
+                            <DropShadowEffect BlurRadius="8" ShadowDepth="1" Opacity="0.06" Color="Black"/>
+                        </Border.Effect>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <!-- 本地 -->
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="本地版本" Foreground="#007AFF" FontWeight="SemiBold" FontSize="12"/>
+                                <TextBlock Text="{Binding Local.Amount, StringFormat='¥{0:N2}'}" FontSize="18" FontWeight="Bold" Margin="0,4,0,2"/>
+                                <TextBlock Text="{Binding Local.Type}" Foreground="#8E8E93" FontSize="12"/>
+                                <TextBlock Text="{Binding Local.Note}" Foreground="#8E8E93" FontSize="12"/>
+                                <TextBlock Text="{Binding Local.SourceDevice}" Foreground="#C7C7CC" FontSize="11"/>
+                            </StackPanel>
+                            <TextBlock Grid.Column="1" Text="⟷" FontSize="20" VerticalAlignment="Center" Margin="12,0"/>
+                            <!-- 云端 -->
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="云端版本" Foreground="#FF9500" FontWeight="SemiBold" FontSize="12"/>
+                                <TextBlock Text="{Binding Remote.Amount, StringFormat='¥{0:N2}'}" FontSize="18" FontWeight="Bold" Margin="0,4,0,2"/>
+                                <TextBlock Text="{Binding Remote.Type}" Foreground="#8E8E93" FontSize="12"/>
+                                <TextBlock Text="{Binding Remote.Note}" Foreground="#8E8E93" FontSize="12"/>
+                                <TextBlock Text="{Binding Remote.SourceDevice}" Foreground="#C7C7CC" FontSize="11"/>
+                            </StackPanel>
+                            <!-- 操作按钮 -->
+                            <StackPanel Grid.Column="3" VerticalAlignment="Center" Margin="12,0,0,0">
+                                <Button Content="保留本地" Tag="{Binding}" Click="KeepLocal_Click"
+                                        Background="#007AFF" Foreground="White" BorderThickness="0"
+                                        Padding="12,6" Margin="0,0,0,6">
+                                    <Button.Template>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                                                <ContentPresenter HorizontalAlignment="Center"/>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Button.Template>
+                                </Button>
+                                <Button Content="保留云端" Tag="{Binding}" Click="KeepRemote_Click"
+                                        Background="#FF9500" Foreground="White" BorderThickness="0"
+                                        Padding="12,6">
+                                    <Button.Template>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                                                <ContentPresenter HorizontalAlignment="Center"/>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Button.Template>
+                                </Button>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <Button Grid.Row="2" Content="完成" HorizontalAlignment="Right" Width="80" Padding="0,8"
+                Click="Done_Click" Background="#34C759" Foreground="White" BorderThickness="0" Margin="0,12,0,0">
+            <Button.Template>
+                <ControlTemplate TargetType="Button">
+                    <Border Background="{TemplateBinding Background}" CornerRadius="8" Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                </ControlTemplate>
+            </Button.Template>
+        </Button>
+    </Grid>
+</Window>

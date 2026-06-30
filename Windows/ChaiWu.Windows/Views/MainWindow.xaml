@@ -36,7 +36,7 @@
                 Visibility="{Binding HasConflicts, Converter={StaticResource BoolVis}}"
                 Cursor="Hand">
             <Border.InputBindings>
-                <MouseBinding MouseAction="LeftClick" Command="{Binding OpenConflictCenterCommand}"/>
+                <MouseBinding MouseAction="LeftClick" Command="{Binding OpenConflictCenterCommand}" />
             </Border.InputBindings>
             <TextBlock Foreground="White" FontWeight="SemiBold" FontSize="14"
                        Text="{Binding Conflicts.Count, StringFormat='⚠ 检测到 {0} 条数据冲突，点击处理 →'}"/>
@@ -90,7 +90,7 @@
                     <TextBlock Text="收支明细" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/>
                     <Button Content="+ 新增" Margin="16,0,0,0" Padding="12,6"
                             Background="#007AFF" Foreground="White" BorderThickness="0"
-                            Command="{Binding ShowAddDialogCommand}">
+                            Command="{Binding ShowAddDialogCommand}" >
                         <Button.Template>
                             <ControlTemplate TargetType="Button">
                                 <Border Background="{TemplateBinding Background}" CornerRadius="8" Padding="{TemplateBinding Padding}">
