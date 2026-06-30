@@ -31,8 +31,8 @@
 		AA00001600000000000000AA /* XlsxManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XlsxManager.swift; sourceTree = "<group>"; };
 		AA00001800000000000000AA /* ZipArchiveBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZipArchiveBuilder.swift; sourceTree = "<group>"; };
 		AA00002600000000000000AA /* XlsReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XlsReader.swift; sourceTree = "<group>"; };
-		AA00002800000000000000AA /* AppLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLogger.swift; sourceTree = "<group>"; };
-		AA00002A00000000000000AA /* LogViewerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogViewerView.swift; sourceTree = "<group>"; };
+		AA00002800000000000000AA /* AppLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChaiWu/Utils/AppLogger.swift; sourceTree = "<group>"; };
+		AA00002A00000000000000AA /* LogViewerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChaiWu/Views/LogViewer/LogViewerView.swift; sourceTree = "<group>"; };
 		AA00001A00000000000000AA /* SyncEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncEngine.swift; sourceTree = "<group>"; };
 		AA00001C00000000000000AA /* TransactionViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransactionViewModel.swift; sourceTree = "<group>"; };
 		AA00001E00000000000000AA /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
