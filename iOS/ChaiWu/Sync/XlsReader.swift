@@ -166,12 +166,14 @@ final class XlsReader {
             return v
         }
         func rkVal(_ rk: Int) -> Double {
-            var v: Double
+            let v: Double
             if rk & 2 != 0 {
                 v = Double(rk >> 2)
             } else {
                 var bits: UInt64 = UInt64(UInt32(bitPattern: Int32(rk & ~3))) << 32
-                withUnsafeMutableBytes(of: &v) { p in withUnsafeBytes(of: &bits) { s in (0..<8).forEach { p[$0] = s[$0] } } }
+                var tmp: Double = 0
+                withUnsafeMutableBytes(of: &tmp) { p in withUnsafeBytes(of: &bits) { s in (0..<8).forEach { p[$0] = s[$0] } } }
+                v = tmp
             }
             return rk & 1 != 0 ? v / 100 : v
         }
@@ -206,7 +208,7 @@ final class XlsReader {
         var merged = [(type: Int, data: Data)]()
         var idx = 0
         while idx < records.count {
-            var rec = records[idx]
+            let rec = records[idx]
             if rec.type == 0x00FC { // SST: merge following CONTINUE
                 var combined = rec.data
                 idx += 1
