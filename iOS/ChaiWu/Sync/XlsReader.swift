@@ -1,4 +1,5 @@
 import Foundation
+import CoreFoundation
 
 // Minimal OLE2 Compound Document + BIFF8 reader for .xls files
 // Supports: SST, LABELSST, NUMBER, RK, MULRK, LABEL records
@@ -177,7 +178,7 @@ final class XlsReader {
             if rk & 2 != 0 {
                 v = Double(rk >> 2)
             } else {
-                var bits: UInt64 = UInt64(UInt32(bitPattern: Int32(rk & ~3))) << 32
+                var bits: UInt64 = UInt64(UInt32(truncatingIfNeeded: rk & ~3)) << 32
                 var tmp: Double = 0
                 withUnsafeMutableBytes(of: &tmp) { p in withUnsafeBytes(of: &bits) { s in (0..<8).forEach { p[$0] = s[$0] } } }
                 v = tmp
@@ -196,7 +197,13 @@ final class XlsReader {
                 return String(String.UnicodeScalarView(chars.compactMap { UnicodeScalar($0) }))
             } else {
                 let bytes = (0..<cch).compactMap { pos+$0 < buf.count ? buf[pos+$0] : nil }
-                return String(bytes: bytes, encoding: .isoLatin1) ?? String(bytes: bytes, encoding: .utf8) ?? ""
+                // 优先尝试 GBK/GB18030（中文 XLS 常用编码），再回退 Latin-1
+                let gbkEnc = String.Encoding(rawValue:
+                    CFStringConvertEncodingToNSStringEncoding(
+                        CFStringEncoding(CFStringEncodings.GB_18030_2000.rawValue)))
+                return String(bytes: bytes, encoding: gbkEnc)
+                    ?? String(bytes: bytes, encoding: .isoLatin1)
+                    ?? ""
             }
         }
 
