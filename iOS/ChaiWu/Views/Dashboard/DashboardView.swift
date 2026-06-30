@@ -15,16 +15,8 @@ struct DashboardView: View {
         return vm.transactions.filter { $0.type == f }
     }
 
-    // 支持 xlsx / xls / csv / numbers 等主流格式
-    private static let importTypes: [UTType] = [
-        UTType(filenameExtension: "xlsx") ?? .data,
-        UTType(filenameExtension: "xls")  ?? .data,
-        UTType(filenameExtension: "csv")  ?? .commaSeparatedText,
-        UTType(filenameExtension: "numbers") ?? .data,
-        .spreadsheet,
-        .commaSeparatedText,
-        .data,
-    ]
+    // 允许所有文件（xlsx/xls/csv/numbers），由代码按扩展名识别
+    private static let importTypes: [UTType] = [.data, .item]
 
     var body: some View {
         NavigationStack {
