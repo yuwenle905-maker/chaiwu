@@ -16,6 +16,7 @@
 		AA00001D00000000000000AA /* TransactionViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00001C00000000000000AA /* TransactionViewModel.swift */; };
 		AA00001F00000000000000AA /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00001E00000000000000AA /* DashboardView.swift */; };
 		AA00004B00000000000000AA /* AdvertisingDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00004A00000000000000AA /* AdvertisingDetailView.swift */; };
+		AA00004D00000000000000AA /* MonthlyListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00004C00000000000000AA /* MonthlyListView.swift */; };
 		AA00002100000000000000AA /* EntryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00002000000000000000AA /* EntryView.swift */; };
 		AA00002300000000000000AA /* ConflictCenterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00002200000000000000AA /* ConflictCenterView.swift */; };
 		AA00002500000000000000AA /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA00002400000000000000AA /* Assets.xcassets */; };
@@ -38,6 +39,7 @@
 		AA00001C00000000000000AA /* TransactionViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransactionViewModel.swift; sourceTree = "<group>"; };
 		AA00001E00000000000000AA /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
 		AA00004A00000000000000AA /* AdvertisingDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdvertisingDetailView.swift; sourceTree = "<group>"; };
+		AA00004C00000000000000AA /* MonthlyListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MonthlyListView.swift; sourceTree = "<group>"; };
 		AA00002000000000000000AA /* EntryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EntryView.swift; sourceTree = "<group>"; };
 		AA00002200000000000000AA /* ConflictCenterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConflictCenterView.swift; sourceTree = "<group>"; };
 		AA00002400000000000000AA /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -136,6 +138,7 @@
 			children = (
 				AA00001E00000000000000AA /* DashboardView.swift */,
 				AA00004A00000000000000AA /* AdvertisingDetailView.swift */,
+				AA00004C00000000000000AA /* MonthlyListView.swift */,
 			);
 			path = Dashboard;
 			sourceTree = "<group>";
@@ -254,6 +257,7 @@
 				AA00001D00000000000000AA /* TransactionViewModel.swift in Sources */,
 				AA00001F00000000000000AA /* DashboardView.swift in Sources */,
 				AA00004B00000000000000AA /* AdvertisingDetailView.swift in Sources */,
+				AA00004D00000000000000AA /* MonthlyListView.swift in Sources */,
 				AA00002100000000000000AA /* EntryView.swift in Sources */,
 				AA00002300000000000000AA /* ConflictCenterView.swift in Sources */,
 			);

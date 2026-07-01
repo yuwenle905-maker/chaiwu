@@ -78,11 +78,8 @@ struct DashboardView: View {
     @State private var showExportSheet = false
     @State private var showAdvertising = false
     @State private var selectedFilter: TransactionType? = nil
-
-    var filteredTransactions: [Transaction] {
-        guard let f = selectedFilter else { return vm.transactions }
-        return vm.transactions.filter { $0.type == f }
-    }
+    @State private var showIncomeDetail = false
+    @State private var showExpenseDetail = false
 
     var body: some View {
         NavigationStack {
@@ -94,7 +91,7 @@ struct DashboardView: View {
 
                     summaryCards
                     filterBar
-                    transactionList
+                    MonthlyListView(filter: selectedFilter).environmentObject(vm)
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
@@ -157,6 +154,16 @@ struct DashboardView: View {
             }
             .sheet(isPresented: $showAdvertising) {
                 AdvertisingDetailView().environmentObject(vm)
+            }
+            .sheet(isPresented: $showIncomeDetail) {
+                NavigationStack {
+                    TotalDetailView(type: .income).environmentObject(vm)
+                }
+            }
+            .sheet(isPresented: $showExpenseDetail) {
+                NavigationStack {
+                    TotalDetailView(type: .expense).environmentObject(vm)
+                }
             }
             .onChange(of: showExportSheet) { show in
                 guard show, let url = exportURL else { return }
@@ -257,7 +264,9 @@ struct DashboardView: View {
 
             HStack(spacing: 10) {
                 SummaryMiniCard(title: "累计收入", amount: vm.totalIncome,  color: .green)
+                    .onTapGesture { showIncomeDetail = true }
                 SummaryMiniCard(title: "累计支出", amount: vm.totalExpense, color: .red)
+                    .onTapGesture { showExpenseDetail = true }
                 SummaryMiniCard(title: "本月广告", amount: vm.thisMonthAdvertising, color: .orange)
                     .onTapGesture { showAdvertising = true }
             }
@@ -265,35 +274,17 @@ struct DashboardView: View {
     }
 
     private var filterBar: some View {
-        HStack(spacing: 8) {
-            FilterChip(label: "全部",   selected: selectedFilter == nil)      { selectedFilter = nil }
-            FilterChip(label: "收入",   selected: selectedFilter == .income)  { selectedFilter = .income }
-            FilterChip(label: "支出",   selected: selectedFilter == .expense) { selectedFilter = .expense }
+        let count = selectedFilter == nil ? vm.transactions.count
+            : vm.transactions.filter { $0.type == selectedFilter }.count
+        return HStack(spacing: 8) {
+            FilterChip(label: "全部", selected: selectedFilter == nil)       { selectedFilter = nil }
+            FilterChip(label: "收入", selected: selectedFilter == .income)   { selectedFilter = .income }
+            FilterChip(label: "支出", selected: selectedFilter == .expense)  { selectedFilter = .expense }
             Spacer()
-            Text("\(filteredTransactions.count) 条").font(.caption).foregroundStyle(.secondary)
+            Text("\(count) 条").font(.caption).foregroundStyle(.secondary)
         }
     }
 
-    private var transactionList: some View {
-        LazyVStack(spacing: 8) {
-            ForEach(filteredTransactions) { t in
-                TransactionRow(transaction: t)
-                    .onTapGesture { editingTransaction = t }
-                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                        Button(role: .destructive) { vm.delete(t) } label: {
-                            Label("删除", systemImage: "trash")
-                        }
-                    }
-                    .swipeActions(edge: .leading) {
-                        Button { editingTransaction = t } label: {
-                            Label("编辑", systemImage: "pencil")
-                        }
-                        .tint(.blue)
-                    }
-            }
-        }
-        .padding(.bottom, 32)
-    }
 }
 
 // MARK: - 组件
