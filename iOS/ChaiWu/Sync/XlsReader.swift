@@ -487,7 +487,7 @@ extension XlsReader {
             if note.contains("底薪") { return .baseSalary }
             if note.contains("绩效") { return .performance }
             if note.contains("物业") || note.contains("电费") || note.contains("房") { return .rent }
-            if note.contains("广告") { return .advertising }
+            if note.contains("广告") || note.range(of: "资料\\*?\\d+", options: .regularExpression) != nil { return .advertising }
             if note.contains("物流") || note.contains("快递费") || note.contains("运费") { return .logistics }
             return .custom
         }
