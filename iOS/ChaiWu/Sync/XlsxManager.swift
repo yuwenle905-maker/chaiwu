@@ -309,7 +309,7 @@ enum OOXMLReader {
                 let body = String(rowXML[bodyRange])
 
                 // 列号：从 r="B3" 提取列字母
-                let colIdx = columnIndex(from: attr)
+                let colIdx = columnIndex(from: attr) ?? cols.count
 
                 let value: String
                 if attr.contains("t=\"s\"") {
@@ -317,7 +317,7 @@ enum OOXMLReader {
                     let bodyNS = NSRange(body.startIndex..., in: body)
                     if let vm = vPat?.firstMatch(in: body, range: bodyNS),
                        let vr = Range(vm.range(at: 1), in: body),
-                       let idx = Int(body[vr]), idx < sharedStrings.count {
+                       let idx = Int(body[vr]), idx >= 0, idx < sharedStrings.count {
                         value = sharedStrings[idx]
                     } else { value = "" }
                 } else if attr.contains("t=\"inlineStr\"") || body.contains("<is>") {
@@ -350,9 +350,9 @@ enum OOXMLReader {
     }
 
     // 从单元格属性字符串中提取列号（A=0, B=1, ...）
-    private static func columnIndex(from attr: String) -> Int {
+    private static func columnIndex(from attr: String) -> Int? {
         // 找 r="XN" 中的列字母部分
-        guard let rng = attr.range(of: #"r="([A-Z]+)\d+""#, options: .regularExpression) else { return 0 }
+        guard let rng = attr.range(of: #"r="([A-Z]+)\d+""#, options: .regularExpression) else { return nil }
         let token = String(attr[rng]).replacingOccurrences(of: "r=\"", with: "").filter { $0.isLetter }
         return token.unicodeScalars.reduce(0) { $0 * 26 + Int($1.value) - 64 } - 1
     }

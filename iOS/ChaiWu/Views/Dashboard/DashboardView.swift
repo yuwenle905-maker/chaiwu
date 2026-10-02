@@ -108,10 +108,15 @@ struct DashboardView: View {
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
+                    HStack(spacing: 18) {
+                        NavigationLink(destination: SettingsView()) {
+                            Image(systemName: "gearshape")
+                        }
                     Button(action: { showEntry = true }) {
                         Image(systemName: "plus.circle.fill")
                             .font(.title2)
                             .foregroundStyle(.blue)
+                    }
                     }
                 }
                 ToolbarItem(placement: .topBarLeading) {
@@ -129,9 +134,6 @@ struct DashboardView: View {
                             Label("导出表格", systemImage: "square.and.arrow.up")
                         }
                         Divider()
-                        NavigationLink(destination: SettingsView()) {
-                            Label("设置与收支分类", systemImage: "gearshape")
-                        }
                         Toggle(isOn: $biometricLockEnabled) {
                             Label("面容/指纹解锁", systemImage: "faceid")
                         }

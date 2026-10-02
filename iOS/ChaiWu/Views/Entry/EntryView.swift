@@ -20,7 +20,7 @@ struct EntryView: View {
         self.editing = editing
         _type        = State(initialValue: editing?.type ?? .expense)
         _amountText  = State(initialValue: editing.map { "\($0.amount)" } ?? "")
-        _category    = State(initialValue: editing?.category ?? .advertising)
+        _category    = State(initialValue: editing?.category ?? CategorySettings.shared.categories(for: .expense).first ?? .custom)
         _note        = State(initialValue: editing?.note ?? "")
         _date        = State(initialValue: editing?.date ?? Date())
     }
