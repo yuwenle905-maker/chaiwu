@@ -33,13 +33,13 @@ final class XlsxManager {
 
     func exportToXlsx(_ transactions: [Transaction]) throws {
         // 1. 写前备份
-        makeBackup()
+        try makeBackup()
 
         // 2. 生成 xlsx 内容到临时文件（原子写入）
         let tempURL = xlsxURL.deletingLastPathComponent()
             .appendingPathComponent("temp_\(UUID().uuidString).xlsx")
 
-        let data = try OOXMLWriter.generate(transactions: transactions)
+        let data = try OOXMLWriter.generateSync(transactions: transactions)
         try data.write(to: tempURL, options: .atomic)
 
         // 3. Atomic Move：覆盖原文件
@@ -57,7 +57,7 @@ final class XlsxManager {
     func importFromXlsx() throws -> [Transaction] {
         guard FileManager.default.fileExists(atPath: xlsxURL.path) else { return [] }
         let data = try Data(contentsOf: xlsxURL)
-        return try OOXMLReader.parse(data: data)
+        return try OOXMLReader.parse(data: data, requireIdentity: true)
     }
 
     func importAny(from url: URL, data: Data) throws -> [Transaction] {
@@ -92,13 +92,13 @@ final class XlsxManager {
 
     // MARK: - 备份（最多保留 30 份）
 
-    private func makeBackup() {
+    private func makeBackup() throws {
         guard FileManager.default.fileExists(atPath: xlsxURL.path) else { return }
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyyMMdd_HHmm"
-        let name = "\(formatter.string(from: Date())).xlsx"
+        let name = "\(formatter.string(from: Date()))_\(UUID().uuidString).xlsx"
         let dest = backupDir.appendingPathComponent(name)
-        try? FileManager.default.copyItem(at: xlsxURL, to: dest)
+        try FileManager.default.copyItem(at: xlsxURL, to: dest)
         pruneBackups()
     }
 
@@ -120,6 +120,26 @@ final class XlsxManager {
 // MARK: - 轻量 OOXML 生成器
 
 enum OOXMLWriter {
+    // 同步必须保留身份、完整日期和删除标记；普通分享仍使用六列报表。
+    static func generateSync(transactions: [Transaction]) throws -> Data {
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let headers = ["日期", "类型", "金额", "分类", "备注", "UUID", "修改时间", "来源设备", "冲突标记", "删除标记"]
+        func row(_ values: [String]) -> String {
+            "<row>" + values.map { "<c t=\"inlineStr\"><is><t>\($0.xmlEscaped)</t></is></c>" }.joined() + "</row>"
+        }
+        let rows = transactions.map {
+            row([iso.string(from: $0.date), $0.type.rawValue, "\($0.amount)", $0.category.rawValue,
+                 $0.note, $0.id.uuidString, iso.string(from: $0.modifiedAt), $0.sourceDevice,
+                 $0.isConflict ? "true" : "false", $0.isDeleted ? "true" : "false"])
+        }.joined()
+        let xml = """
+        <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>\(row(headers))\(rows)</sheetData></worksheet>
+        """
+        return try buildXlsxArchive(sheetXML: xml)
+    }
+
     static let dateFmt: DateFormatter = {
         let f = DateFormatter()
         f.locale = Locale(identifier: "zh_CN")
@@ -216,7 +236,7 @@ enum OOXMLWriter {
 // MARK: - 轻量 OOXML 解析器
 
 enum OOXMLReader {
-    static func parse(data: Data) throws -> [Transaction] {
+    static func parse(data: Data, requireIdentity: Bool = false) throws -> [Transaction] {
         guard let zip = try? ZipArchiveReader.read(data: data),
               let sheetData = zip["xl/worksheets/sheet1.xml"] else {
             throw SyncError.parseError("无法读取 xlsx 文件内容")
@@ -225,6 +245,16 @@ enum OOXMLReader {
         let sharedStrings = parseSharedStrings(zip["xl/sharedStrings.xml"])
         let xml = String(data: sheetData, encoding: .utf8) ?? ""
         let rows = extractRows(xml: xml, sharedStrings: sharedStrings)
+        if requireIdentity {
+            guard rows.first?.contains("UUID") == true else {
+                throw SyncError.parseError("旧同步文件缺少账单 ID，已暂停同步以保护修改。请在设置中备份并重建同步文件。")
+            }
+            let parsed = parseAppFormat(rows: rows)
+            guard parsed.count == max(0, rows.count - 1) else {
+                throw SyncError.parseError("同步文件含无法识别的记录，请先检查文件；本机账单未被覆盖。")
+            }
+            return parsed
+        }
 
         // 先尝试 app 导出格式（有 UUID）
         let appFormat = parseAppFormat(rows: rows)
@@ -331,17 +361,20 @@ enum OOXMLReader {
     private static func parseAppFormat(rows: [[String]]) -> [Transaction] {
         var results: [Transaction] = []
         let iso = ISO8601DateFormatter()
+        let fractionalISO = ISO8601DateFormatter()
+        fractionalISO.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         for (i, values) in rows.enumerated() {
             guard i > 0, values.count >= 9 else { continue }
-            guard let date     = iso.date(from: values[0]),
+            guard let date     = fractionalISO.date(from: values[0]) ?? iso.date(from: values[0]),
                   let type     = TransactionType(rawValue: values[1]),
                   let amount   = Decimal(string: values[2]),
                   let category = TransactionCategory(rawValue: values[3]),
                   let id       = UUID(uuidString: values[5]),
-                  let modified = iso.date(from: values[6]) else { continue }
+                  let modified = fractionalISO.date(from: values[6]) ?? iso.date(from: values[6]) else { continue }
             results.append(Transaction(id: id, date: date, type: type, amount: amount,
                 category: category, note: values[4], modifiedAt: modified,
-                sourceDevice: values[7], isConflict: values[8] == "true"))
+                sourceDevice: values[7], isConflict: values[8] == "true",
+                isDeleted: values.count > 9 && values[9] == "true"))
         }
         return results
     }
@@ -504,10 +537,16 @@ enum CSVImporter {
     }
 }
 
-enum SyncError: Error {
+enum SyncError: Error, LocalizedError {
     case parseError(String)
     case writeError(String)
     case conflictDetected([ConflictPair])
+    var errorDescription: String? {
+        switch self {
+        case .parseError(let message), .writeError(let message): return message
+        case .conflictDetected: return "检测到账单冲突"
+        }
+    }
 }
 
 extension String {

@@ -11,10 +11,12 @@ final class SyncEngine: ObservableObject {
 
     private var fileWatcher: DispatchSourceFileSystemObject?
     private let syncQueue = DispatchQueue(label: "com.chaiwu.sync", qos: .utility)
+    private var lastExportedData: Data?
 
     func startWatching() {
-        let xlsxPath = XlsxManager.shared.xlsxURL.path
-        let fd = open(xlsxPath, O_EVTONLY)
+        guard fileWatcher == nil else { return }
+        let directory = XlsxManager.shared.xlsxURL.deletingLastPathComponent().path
+        let fd = open(directory, O_EVTONLY)
         guard fd != -1 else { return }
 
         fileWatcher = DispatchSource.makeFileSystemObjectSource(
@@ -23,10 +25,14 @@ final class SyncEngine: ObservableObject {
             queue: syncQueue
         )
         fileWatcher?.setEventHandler { [weak self] in
-            self?.performSync()
+            guard let self else { return }
+            let data = try? Data(contentsOf: XlsxManager.shared.xlsxURL)
+            guard data != self.lastExportedData else { return }
+            self.performSync()
         }
         fileWatcher?.setCancelHandler { close(fd) }
         fileWatcher?.resume()
+        performSync()
     }
 
     func performSync() {
@@ -39,8 +45,12 @@ final class SyncEngine: ObservableObject {
                 let local  = DatabaseManager.shared.fetchAll()
                 let (merged, conflicts) = self.merge(local: local, remote: remote)
 
-                DatabaseManager.shared.batchUpsert(merged)
-                try XlsxManager.shared.exportToXlsx(merged)
+                guard DatabaseManager.shared.batchUpsert(merged) else {
+                    throw SyncError.parseError(DatabaseManager.shared.lastError)
+                }
+                // 再读一次，纳入同步期间保存的编辑及删除。
+                try XlsxManager.shared.exportToXlsx(DatabaseManager.shared.fetchAll())
+                self.lastExportedData = try Data(contentsOf: XlsxManager.shared.xlsxURL)
 
                 DispatchQueue.main.async {
                     self.isSyncing = false
@@ -52,6 +62,21 @@ final class SyncEngine: ObservableObject {
                     self.isSyncing = false
                     self.syncError = error.localizedDescription
                 }
+            }
+        }
+    }
+
+    // 仅在用户确认后，以本机数据库重建缺少 ID 的旧同步文件；原文件由写入器备份。
+    func rebuildSyncFile() {
+        syncQueue.async { [weak self] in
+            guard let self else { return }
+            DispatchQueue.main.async { self.isSyncing = true; self.syncError = nil }
+            do {
+                try XlsxManager.shared.exportToXlsx(DatabaseManager.shared.fetchAll())
+                self.lastExportedData = try Data(contentsOf: XlsxManager.shared.xlsxURL)
+                DispatchQueue.main.async { self.isSyncing = false; self.lastSyncDate = Date() }
+            } catch {
+                DispatchQueue.main.async { self.isSyncing = false; self.syncError = error.localizedDescription }
             }
         }
     }

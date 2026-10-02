@@ -10,6 +10,7 @@ final class TransactionViewModel: ObservableObject {
     @Published var authError: String?
     @Published var importError: String?
     @Published var importSuccess: String?
+    @Published var writeError: String?
 
     private let db = DatabaseManager.shared
     private let sync = SyncEngine.shared
@@ -70,30 +71,39 @@ final class TransactionViewModel: ObservableObject {
 
     func reload() {
         let all = db.fetchAll()
-        transactions = all.filter { !$0.isConflict }
-        conflicts    = all.filter {  $0.isConflict }
+        transactions = all.filter { !$0.isConflict && !$0.isDeleted }
+        conflicts    = all.filter {  $0.isConflict && !$0.isDeleted }
     }
 
+    @discardableResult
     func add(type: TransactionType, amount: Decimal, category: TransactionCategory,
-             note: String, date: Date = Date()) {
+             note: String, date: Date = Date()) -> Bool {
         let t = Transaction(date: date, type: type, amount: amount, category: category, note: note)
-        db.upsert(t)
+        guard db.upsert(t) else { writeError = db.lastError; return false }
         reload()
         sync.performSync()
+        return true
     }
 
-    func update(_ transaction: Transaction) {
+    @discardableResult
+    func update(_ transaction: Transaction) -> Bool {
         var t = transaction
-        t.modifiedAt = Date()
-        db.upsert(t)
+        let current = db.fetchAll().first { $0.id == t.id }
+        guard current?.isDeleted != true else { writeError = "这条账单已删除，请返回列表刷新"; return false }
+        t.modifiedAt = max(Date(), (current?.modifiedAt ?? t.modifiedAt).addingTimeInterval(0.001))
+        t.isConflict = false
+        guard db.upsert(t) else { writeError = db.lastError; return false }
         reload()
         sync.performSync()
+        return true
     }
 
-    func delete(_ transaction: Transaction) {
-        db.delete(id: transaction.id)
+    @discardableResult
+    func delete(_ transaction: Transaction) -> Bool {
+        guard db.delete(id: transaction.id) else { writeError = db.lastError; return false }
         reload()
         sync.performSync()
+        return true
     }
 
     func resolveConflict(keep: Transaction, discard: Transaction) {
@@ -132,7 +142,9 @@ final class TransactionViewModel: ObservableObject {
                 let imported = try XlsxManager.shared.importAny(from: url, data: data)
                 appLog("解析完成, 共 \(imported.count) 条", level: .info)
 
-                self.db.batchUpsert(imported)
+                guard self.db.batchUpsert(imported) else {
+                    throw NSError(domain: "Database", code: 1, userInfo: [NSLocalizedDescriptionKey: self.db.lastError])
+                }
                 appLog("数据库写入完成")
 
                 DispatchQueue.main.async {

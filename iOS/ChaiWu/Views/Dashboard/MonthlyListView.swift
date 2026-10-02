@@ -29,7 +29,7 @@ struct MonthlyListView: View {
         }
         return dict.map { key, items in
             MonthGroup(id: key, transactions: items.sorted { $0.date > $1.date })
-        }.sorted { $0.id > $1.id }
+        }.sorted { ($0.transactions.first?.date ?? .distantPast) > ($1.transactions.first?.date ?? .distantPast) }
     }
 
     var body: some View {
@@ -40,7 +40,7 @@ struct MonthlyListView: View {
         } else {
             LazyVStack(spacing: 10) {
                 ForEach(groups) { group in
-                    NavigationLink(destination: MonthDetailView(group: group).environmentObject(vm)) {
+                    NavigationLink(destination: MonthDetailView(group: group, filter: filter).environmentObject(vm)) {
                         MonthGroupCard(group: group)
                     }
                     .buttonStyle(.plain)
@@ -107,6 +107,14 @@ private struct MonthStat: View {
 struct MonthDetailView: View {
     @EnvironmentObject var vm: TransactionViewModel
     let group: MonthGroup
+    let filter: TransactionType?
+    private var currentGroup: MonthGroup {
+        let calendar = Calendar.current
+        guard let reference = group.transactions.first?.date else { return MonthGroup(id: group.id, transactions: []) }
+        return MonthGroup(id: group.id, transactions: vm.transactions.filter {
+            calendar.isDate($0.date, equalTo: reference, toGranularity: .month) && (filter == nil || $0.type == filter)
+        }.sorted { $0.date > $1.date })
+    }
     @State private var editingTransaction: Transaction?
 
     private static let dayFmt: DateFormatter = {
@@ -119,20 +127,20 @@ struct MonthDetailView: View {
             // 月度汇总
             Section {
                 HStack(spacing: 0) {
-                    MonthStat(label: "收入", amount: group.totalIncome,  color: .green)
+                    MonthStat(label: "收入", amount: currentGroup.totalIncome,  color: .green)
                     Divider().frame(height: 30)
-                    MonthStat(label: "支出", amount: group.totalExpense, color: .red)
+                    MonthStat(label: "支出", amount: currentGroup.totalExpense, color: .red)
                     Divider().frame(height: 30)
                     MonthStat(label: "净额",
-                              amount: group.netBalance,
-                              color: group.netBalance >= 0 ? .blue : .red)
+                              amount: currentGroup.netBalance,
+                              color: currentGroup.netBalance >= 0 ? .blue : .red)
                 }
                 .padding(.vertical, 4)
             }
 
             // 明细列表（按日期降序）
-            let incomeItems  = group.transactions.filter { $0.type == .income }
-            let expenseItems = group.transactions.filter { $0.type == .expense }
+            let incomeItems  = currentGroup.transactions.filter { $0.type == .income }
+            let expenseItems = currentGroup.transactions.filter { $0.type == .expense }
 
             if !incomeItems.isEmpty {
                 Section("收入明细") {
@@ -167,11 +175,15 @@ struct MonthDetailView: View {
         .sheet(item: $editingTransaction) { t in
             EntryView(editing: t).environmentObject(vm)
         }
+        .alert("操作失败", isPresented: Binding(get: { vm.writeError != nil }, set: { if !$0 { vm.writeError = nil } })) {
+            Button("好") { vm.writeError = nil }
+        } message: { Text(vm.writeError ?? "") }
     }
 }
 
 // MARK: - 累计收入/支出 详情页
 struct TotalDetailView: View {
+    @ObservedObject private var categories = CategorySettings.shared
     @EnvironmentObject var vm: TransactionViewModel
     let type: TransactionType
     @State private var editingTransaction: Transaction?
@@ -194,7 +206,7 @@ struct TotalDetailView: View {
         return dict.map { key, txs in
             (month: key, items: txs.sorted { $0.date > $1.date },
              total: txs.reduce(0) { $0 + $1.amount })
-        }.sorted { $0.month > $1.month }
+        }.sorted { ($0.items.first?.date ?? .distantPast) > ($1.items.first?.date ?? .distantPast) }
     }
 
     private var title: String { type == .income ? "累计收入" : "累计支出" }
@@ -230,7 +242,7 @@ struct TotalDetailView: View {
                                 .font(.system(size: 12, weight: .medium))
                                 .foregroundStyle(.secondary).frame(width: 44, alignment: .leading)
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(t.category.rawValue).font(.subheadline.weight(.medium))
+                                Text(categories.name(for: t.category)).font(.subheadline.weight(.medium))
                                 if !t.note.isEmpty {
                                     Text(t.note).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                                 }
@@ -264,5 +276,8 @@ struct TotalDetailView: View {
         .sheet(item: $editingTransaction) { t in
             EntryView(editing: t).environmentObject(vm)
         }
+        .alert("操作失败", isPresented: Binding(get: { vm.writeError != nil }, set: { if !$0 { vm.writeError = nil } })) {
+            Button("好") { vm.writeError = nil }
+        } message: { Text(vm.writeError ?? "") }
     }
 }

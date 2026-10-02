@@ -129,6 +129,9 @@ struct DashboardView: View {
                             Label("导出表格", systemImage: "square.and.arrow.up")
                         }
                         Divider()
+                        NavigationLink(destination: SettingsView()) {
+                            Label("设置与收支分类", systemImage: "gearshape")
+                        }
                         Toggle(isOn: $biometricLockEnabled) {
                             Label("面容/指纹解锁", systemImage: "faceid")
                         }
@@ -187,12 +190,8 @@ struct DashboardView: View {
             do {
                 let tmp = FileManager.default.temporaryDirectory
                     .appendingPathComponent("chaiwu_export_\(Int(Date().timeIntervalSince1970)).xlsx")
-                try XlsxManager.shared.exportToXlsx(vm.transactions)
-                let src = XlsxManager.shared.xlsxURL
-                if FileManager.default.fileExists(atPath: tmp.path) {
-                    try FileManager.default.removeItem(at: tmp)
-                }
-                try FileManager.default.copyItem(at: src, to: tmp)
+                let data = try OOXMLWriter.generate(transactions: vm.transactions)
+                try data.write(to: tmp, options: .atomic)
                 appLog("导出成功: \(tmp.lastPathComponent)")
                 DispatchQueue.main.async {
                     self.exportURL = tmp
@@ -327,6 +326,7 @@ struct FilterChip: View {
 
 struct TransactionRow: View {
     let transaction: Transaction
+    @ObservedObject private var categories = CategorySettings.shared
 
     private static let dateFmt: DateFormatter = {
         let f = DateFormatter(); f.dateFormat = "MM-dd"; return f
@@ -344,7 +344,7 @@ struct TransactionRow: View {
             .frame(width: 36)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(transaction.category.rawValue)
+                Text(categories.name(for: transaction.category))
                     .font(.subheadline.weight(.medium))
                 if !transaction.note.isEmpty {
                     Text(transaction.note)
@@ -364,6 +364,7 @@ struct TransactionRow: View {
         .padding(12)
         .background(.background)
         .clipShape(RoundedRectangle(cornerRadius: 12))
+        .contentShape(Rectangle())
     }
 }
 
