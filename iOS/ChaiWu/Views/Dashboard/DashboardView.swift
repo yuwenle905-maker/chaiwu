@@ -310,6 +310,8 @@ struct SummaryMiniCard: View {
             }
             Text(amount.formatted(.currency(code: "CNY")))
                 .font(.system(size: 18, weight: .semibold, design: .rounded))
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
                 .foregroundStyle(color)
         }
         .frame(maxWidth: .infinity, alignment: .leading)

@@ -79,6 +79,7 @@ struct DataRegression {
         precondition(!settings.categories(for: .expense).contains(custom))
         precondition(db.fetchAll().first { $0.id == original.id }?.category == custom)
         try ledgerRegression(in: directory)
+        dailyGroupingRegression()
         print("PASS: 旧库迁移、编辑删除、跨月修改、同步身份、分类管理、账本备份/新建/恢复、同步隔离、自动备份及失败保护")
     }
 
@@ -165,5 +166,30 @@ struct DataRegression {
     static func tryCount(_ store: LedgerStore, _ backup: LedgerBackup) -> Int {
         do { return try store.transactions(in: backup).count }
         catch { fatalError("备份应可完整读取：\(error)") }
+    }
+
+    static func dailyGroupingRegression() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Asia/Shanghai")!
+        func date(_ text: String) -> Date { ISO8601DateFormatter().date(from: text)! }
+        let month = date("2026-09-15T00:00:00Z")
+        let first = Transaction(date: date("2026-08-31T16:00:00Z"), type: .income, amount: 100, category: .clientDeposit)
+        let sameDay = Transaction(date: date("2026-09-01T10:00:00Z"), type: .expense, amount: 20, category: .rent)
+        let secondDay = Transaction(date: date("2026-09-01T16:00:00Z"), type: .expense, amount: 30, category: .rent)
+        let october = Transaction(date: date("2026-09-30T16:00:00Z"), type: .expense, amount: 999, category: .rent)
+        var deleted = first; deleted.id = UUID(); deleted.isDeleted = true
+        var conflict = sameDay; conflict.id = UUID(); conflict.isConflict = true
+        let source = [october, secondDay, sameDay, first, deleted, conflict]
+        let groups = DailyTransactionGroup.groups(from: source, month: month, calendar: calendar)
+        precondition(groups.count == 2 && calendar.component(.day, from: groups[0].id) == 1 && calendar.component(.day, from: groups[1].id) == 2)
+        precondition(groups[0].incomeCount == 1 && groups[0].expenseCount == 1 && groups[0].income == 100 && groups[0].expense == 20)
+        precondition(groups[0].transactions.map(\.id) == [first.id, sameDay.id])
+        let income = DailyTransactionGroup.groups(from: source, month: month, filter: .income, calendar: calendar)
+        let expense = DailyTransactionGroup.groups(from: source, month: month, filter: .expense, calendar: calendar)
+        precondition(income.count == 1 && income[0].transactions.map(\.id) == [first.id])
+        precondition(expense.count == 2 && expense.reduce(Decimal(0), { $0 + $1.expense }) == 50)
+        var moved = first; moved.date = october.date
+        let changed = DailyTransactionGroup.groups(from: [moved, sameDay, secondDay], month: month, calendar: calendar)
+        precondition(changed.reduce(0, { $0 + $1.incomeCount }) == 0 && changed.count == 2)
     }
 }

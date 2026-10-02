@@ -109,3 +109,25 @@ struct ConflictPair: Identifiable {
     let local: Transaction
     let remote: Transaction
 }
+
+struct DailyTransactionGroup: Identifiable {
+    let id: Date
+    let transactions: [Transaction]
+    var incomeCount: Int { transactions.filter { $0.type == .income }.count }
+    var expenseCount: Int { transactions.filter { $0.type == .expense }.count }
+    var income: Decimal { transactions.filter { $0.type == .income }.reduce(0) { $0 + $1.amount } }
+    var expense: Decimal { transactions.filter { $0.type == .expense }.reduce(0) { $0 + $1.amount } }
+
+    static func groups(from transactions: [Transaction], month: Date, filter: TransactionType? = nil,
+                       calendar: Calendar = .current) -> [DailyTransactionGroup] {
+        let items = transactions.filter {
+            !$0.isDeleted && !$0.isConflict && calendar.isDate($0.date, equalTo: month, toGranularity: .month)
+                && (filter == nil || $0.type == filter)
+        }
+        return Dictionary(grouping: items, by: { calendar.startOfDay(for: $0.date) }).map { day, entries in
+            Self(id: day, transactions: entries.sorted {
+                $0.date == $1.date ? $0.id.uuidString < $1.id.uuidString : $0.date < $1.date
+            })
+        }.sorted { $0.id < $1.id }
+    }
+}

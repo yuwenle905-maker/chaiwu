@@ -39,6 +39,15 @@ struct EntryView: View {
         NavigationStack {
             Form {
                 Section {
+                    HStack(spacing: 10) {
+                        Image(systemName: "calendar").foregroundStyle(.blue).font(.title3)
+                        DatePicker("账单日期", selection: $date, displayedComponents: [.date, .hourAndMinute])
+                            .labelsHidden()
+                            .tint(.blue)
+                    }
+                } header: { Text("账单日期").font(.headline).foregroundStyle(.primary) }
+                footer: { Text("补录可选以前的日期，账单按此日期归入对应月份。") }
+                Section {
                     Picker("类型", selection: $type) {
                         ForEach(TransactionType.allCases, id: \.self) { t in
                             Text(t.rawValue).tag(t)
@@ -79,12 +88,6 @@ struct EntryView: View {
                         .lineLimit(3)
                 }
 
-                Section("日期") {
-                    DatePicker("", selection: $date, displayedComponents: [.date, .hourAndMinute])
-                        .labelsHidden()
-                    Text("补录可选择以前的日期，账单按此日期归入对应月份。")
-                        .font(.caption).foregroundStyle(.secondary)
-                }
                 if let t = editing {
                     Section {
                         Button("删除这条账单", role: .destructive) { showDelete = true }
