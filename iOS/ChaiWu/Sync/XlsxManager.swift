@@ -8,17 +8,21 @@ final class XlsxManager {
     static let shared = XlsxManager()
 
     var xlsxURL: URL {
+        url(for: LedgerStore.shared.context.syncFilename)
+    }
+
+    func url(for filename: String) -> URL {
         // 优先 iCloud Drive（TrollStore 直接访问）
         let icloud = URL(fileURLWithPath: "/private/var/mobile/Library/Mobile Documents/com~apple~CloudDocs/ChaiWu")
         if (try? FileManager.default.createDirectory(at: icloud, withIntermediateDirectories: true)) != nil
             || FileManager.default.fileExists(atPath: icloud.path) {
-            return icloud.appendingPathComponent("chaiwu_data.xlsx")
+            return icloud.appendingPathComponent(filename)
         }
         // fallback：沙盒 Documents
         let sandbox = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
             .appendingPathComponent("ChaiWu", isDirectory: true)
         try? FileManager.default.createDirectory(at: sandbox, withIntermediateDirectories: true)
-        return sandbox.appendingPathComponent("chaiwu_data.xlsx")
+        return sandbox.appendingPathComponent(filename)
     }
 
     private var backupDir: URL {
@@ -31,33 +35,35 @@ final class XlsxManager {
 
     // MARK: - 导出（写入 xlsx）
 
-    func exportToXlsx(_ transactions: [Transaction]) throws {
+    func exportToXlsx(_ transactions: [Transaction], to target: URL? = nil) throws {
+        let targetURL = target ?? xlsxURL
         // 1. 写前备份
-        makeBackup()
+        try makeBackup(source: targetURL)
 
         // 2. 生成 xlsx 内容到临时文件（原子写入）
-        let tempURL = xlsxURL.deletingLastPathComponent()
+        let tempURL = targetURL.deletingLastPathComponent()
             .appendingPathComponent("temp_\(UUID().uuidString).xlsx")
 
-        let data = try OOXMLWriter.generate(transactions: transactions)
+        let data = try OOXMLWriter.generateSync(transactions: transactions)
         try data.write(to: tempURL, options: .atomic)
 
         // 3. Atomic Move：覆盖原文件
         let fm = FileManager.default
-        if fm.fileExists(atPath: xlsxURL.path) {
-            _ = try fm.replaceItemAt(xlsxURL, withItemAt: tempURL,
+        if fm.fileExists(atPath: targetURL.path) {
+            _ = try fm.replaceItemAt(targetURL, withItemAt: tempURL,
                                       backupItemName: nil, options: .usingNewMetadataOnly)
         } else {
-            try fm.moveItem(at: tempURL, to: xlsxURL)
+            try fm.moveItem(at: tempURL, to: targetURL)
         }
     }
 
     // MARK: - 导入（读取 xlsx / xls / csv）
 
-    func importFromXlsx() throws -> [Transaction] {
-        guard FileManager.default.fileExists(atPath: xlsxURL.path) else { return [] }
-        let data = try Data(contentsOf: xlsxURL)
-        return try OOXMLReader.parse(data: data)
+    func importFromXlsx(at source: URL? = nil) throws -> [Transaction] {
+        let sourceURL = source ?? xlsxURL
+        guard FileManager.default.fileExists(atPath: sourceURL.path) else { return [] }
+        let data = try Data(contentsOf: sourceURL)
+        return try OOXMLReader.parse(data: data, requireIdentity: true)
     }
 
     func importAny(from url: URL, data: Data) throws -> [Transaction] {
@@ -92,13 +98,13 @@ final class XlsxManager {
 
     // MARK: - 备份（最多保留 30 份）
 
-    private func makeBackup() {
-        guard FileManager.default.fileExists(atPath: xlsxURL.path) else { return }
+    private func makeBackup(source: URL) throws {
+        guard FileManager.default.fileExists(atPath: source.path) else { return }
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyyMMdd_HHmm"
-        let name = "\(formatter.string(from: Date())).xlsx"
+        let name = "\(formatter.string(from: Date()))_\(UUID().uuidString).xlsx"
         let dest = backupDir.appendingPathComponent(name)
-        try? FileManager.default.copyItem(at: xlsxURL, to: dest)
+        try FileManager.default.copyItem(at: source, to: dest)
         pruneBackups()
     }
 
@@ -120,10 +126,30 @@ final class XlsxManager {
 // MARK: - 轻量 OOXML 生成器
 
 enum OOXMLWriter {
+    // 同步必须保留身份、完整日期和删除标记；普通分享仍使用六列报表。
+    static func generateSync(transactions: [Transaction]) throws -> Data {
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let headers = ["日期", "类型", "金额", "分类", "备注", "UUID", "修改时间", "来源设备", "冲突标记", "删除标记"]
+        func row(_ values: [String]) -> String {
+            "<row>" + values.map { "<c t=\"inlineStr\"><is><t>\($0.xmlEscaped)</t></is></c>" }.joined() + "</row>"
+        }
+        let rows = transactions.map {
+            row([iso.string(from: $0.date), $0.type.rawValue, "\($0.amount)", $0.category.rawValue,
+                 $0.note, $0.id.uuidString, iso.string(from: $0.modifiedAt), $0.sourceDevice,
+                 $0.isConflict ? "true" : "false", $0.isDeleted ? "true" : "false"])
+        }.joined()
+        let xml = """
+        <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>\(row(headers))\(rows)</sheetData></worksheet>
+        """
+        return try buildXlsxArchive(sheetXML: xml)
+    }
+
     static let dateFmt: DateFormatter = {
         let f = DateFormatter()
         f.locale = Locale(identifier: "zh_CN")
-        f.dateFormat = "M月d日"
+        f.dateFormat = "yyyy-MM-dd HH:mm"
         return f
     }()
 
@@ -216,7 +242,7 @@ enum OOXMLWriter {
 // MARK: - 轻量 OOXML 解析器
 
 enum OOXMLReader {
-    static func parse(data: Data) throws -> [Transaction] {
+    static func parse(data: Data, requireIdentity: Bool = false) throws -> [Transaction] {
         guard let zip = try? ZipArchiveReader.read(data: data),
               let sheetData = zip["xl/worksheets/sheet1.xml"] else {
             throw SyncError.parseError("无法读取 xlsx 文件内容")
@@ -225,6 +251,16 @@ enum OOXMLReader {
         let sharedStrings = parseSharedStrings(zip["xl/sharedStrings.xml"])
         let xml = String(data: sheetData, encoding: .utf8) ?? ""
         let rows = extractRows(xml: xml, sharedStrings: sharedStrings)
+        if requireIdentity {
+            guard rows.first?.contains("UUID") == true else {
+                throw SyncError.parseError("旧同步文件缺少账单 ID，已暂停同步以保护修改。请在设置中备份并重建同步文件。")
+            }
+            let parsed = parseAppFormat(rows: rows)
+            guard parsed.count == max(0, rows.count - 1) else {
+                throw SyncError.parseError("同步文件含无法识别的记录，请先检查文件；本机账单未被覆盖。")
+            }
+            return parsed
+        }
 
         // 先尝试 app 导出格式（有 UUID）
         let appFormat = parseAppFormat(rows: rows)
@@ -279,7 +315,7 @@ enum OOXMLReader {
                 let body = String(rowXML[bodyRange])
 
                 // 列号：从 r="B3" 提取列字母
-                let colIdx = columnIndex(from: attr)
+                let colIdx = columnIndex(from: attr) ?? cols.count
 
                 let value: String
                 if attr.contains("t=\"s\"") {
@@ -287,7 +323,7 @@ enum OOXMLReader {
                     let bodyNS = NSRange(body.startIndex..., in: body)
                     if let vm = vPat?.firstMatch(in: body, range: bodyNS),
                        let vr = Range(vm.range(at: 1), in: body),
-                       let idx = Int(body[vr]), idx < sharedStrings.count {
+                       let idx = Int(body[vr]), idx >= 0, idx < sharedStrings.count {
                         value = sharedStrings[idx]
                     } else { value = "" }
                 } else if attr.contains("t=\"inlineStr\"") || body.contains("<is>") {
@@ -320,9 +356,9 @@ enum OOXMLReader {
     }
 
     // 从单元格属性字符串中提取列号（A=0, B=1, ...）
-    private static func columnIndex(from attr: String) -> Int {
+    private static func columnIndex(from attr: String) -> Int? {
         // 找 r="XN" 中的列字母部分
-        guard let rng = attr.range(of: #"r="([A-Z]+)\d+""#, options: .regularExpression) else { return 0 }
+        guard let rng = attr.range(of: #"r="([A-Z]+)\d+""#, options: .regularExpression) else { return nil }
         let token = String(attr[rng]).replacingOccurrences(of: "r=\"", with: "").filter { $0.isLetter }
         return token.unicodeScalars.reduce(0) { $0 * 26 + Int($1.value) - 64 } - 1
     }
@@ -331,17 +367,20 @@ enum OOXMLReader {
     private static func parseAppFormat(rows: [[String]]) -> [Transaction] {
         var results: [Transaction] = []
         let iso = ISO8601DateFormatter()
+        let fractionalISO = ISO8601DateFormatter()
+        fractionalISO.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         for (i, values) in rows.enumerated() {
             guard i > 0, values.count >= 9 else { continue }
-            guard let date     = iso.date(from: values[0]),
+            guard let date     = fractionalISO.date(from: values[0]) ?? iso.date(from: values[0]),
                   let type     = TransactionType(rawValue: values[1]),
                   let amount   = Decimal(string: values[2]),
                   let category = TransactionCategory(rawValue: values[3]),
                   let id       = UUID(uuidString: values[5]),
-                  let modified = iso.date(from: values[6]) else { continue }
+                  let modified = fractionalISO.date(from: values[6]) ?? iso.date(from: values[6]) else { continue }
             results.append(Transaction(id: id, date: date, type: type, amount: amount,
                 category: category, note: values[4], modifiedAt: modified,
-                sourceDevice: values[7], isConflict: values[8] == "true"))
+                sourceDevice: values[7], isConflict: values[8] == "true",
+                isDeleted: values.count > 9 && values[9] == "true"))
         }
         return results
     }
@@ -352,6 +391,11 @@ enum OOXMLReader {
         let now = Date()
         var cal = Calendar(identifier: .gregorian)
         cal.timeZone = TimeZone(identifier: "Asia/Shanghai") ?? .current
+        let isReport = rows.first == ["日期", "类型", "金额", "余额", "分类", "备注"]
+        let reportDate = DateFormatter()
+        reportDate.locale = Locale(identifier: "en_US_POSIX")
+        reportDate.timeZone = .current
+        reportDate.dateFormat = "yyyy-MM-dd HH:mm"
 
         for (i, values) in rows.enumerated() {
             guard i > 0, values.count >= 2 else { continue }
@@ -359,7 +403,8 @@ enum OOXMLReader {
             guard !dateStr.isEmpty else { continue }
 
             // 解析金额（B列）
-            let amtStr = values[1].replacingOccurrences(of: ",", with: "")
+            if isReport && values.count < 6 { continue }
+            let amtStr = values[isReport ? 2 : 1].replacingOccurrences(of: ",", with: "")
             guard let amtDouble = Double(amtStr), amtDouble != 0 else { continue }
             guard let amount = Decimal(string: String(format: "%.2f", abs(amtDouble))) else { continue }
 
@@ -367,11 +412,12 @@ enum OOXMLReader {
             let date: Date
             if let d = parseChineseDateXlsx(dateStr, cal: cal) { date = d }
             else if let d = ISO8601DateFormatter().date(from: dateStr) { date = d }
+            else if let d = reportDate.date(from: dateStr) { date = d }
             else { date = now }
 
-            let type: TransactionType = amtDouble >= 0 ? .income : .expense
-            let note = values.count >= 4 ? values[3] : ""
-            let category = CSVImporter.guessCategory(note: note, isIncome: amtDouble >= 0)
+            let type: TransactionType = isReport ? (TransactionType(rawValue: values[1]) ?? .expense) : (amtDouble >= 0 ? .income : .expense)
+            let note = isReport ? values[5] : (values.count >= 4 ? values[3] : "")
+            let category = isReport ? (TransactionCategory(rawValue: values[4]) ?? .custom) : CSVImporter.guessCategory(note: note, isIncome: amtDouble >= 0)
 
             results.append(Transaction(date: date, type: type, amount: amount,
                 category: category, note: note, sourceDevice: "xlsx导入"))
@@ -504,10 +550,16 @@ enum CSVImporter {
     }
 }
 
-enum SyncError: Error {
+enum SyncError: Error, LocalizedError {
     case parseError(String)
     case writeError(String)
     case conflictDetected([ConflictPair])
+    var errorDescription: String? {
+        switch self {
+        case .parseError(let message), .writeError(let message): return message
+        case .conflictDetected: return "检测到账单冲突"
+        }
+    }
 }
 
 extension String {

@@ -1,0 +1,25 @@
+name: iOS repair validation
+on:
+  push:
+    branches: ['codex/**']
+  pull_request:
+    paths: ['iOS/**', 'tests/**', 'scripts/**', '.github/workflows/check-ios.yml']
+  workflow_dispatch:
+jobs:
+  ios:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Data regression checks
+        run: bash scripts/test-ios-data.sh
+      - name: Build iPhone app
+        run: |
+          xcodebuild -project iOS/ChaiWu.xcodeproj -scheme ChaiWu -configuration Release -sdk iphoneos CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="" DEVELOPMENT_TEAM="" -archivePath "$RUNNER_TEMP/ChaiWu.xcarchive" archive
+          mkdir -p "$RUNNER_TEMP/Payload"
+          cp -R "$RUNNER_TEMP/ChaiWu.xcarchive/Products/Applications/ChaiWu.app" "$RUNNER_TEMP/Payload/"
+          cd "$RUNNER_TEMP"
+          zip -qr ChaiWu.ipa Payload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ChaiWu-iOS-repair
+          path: ${{ runner.temp }}/ChaiWu.ipa

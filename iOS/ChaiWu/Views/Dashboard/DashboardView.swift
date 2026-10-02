@@ -65,6 +65,7 @@ struct DocumentPickerPresenter: UIViewControllerRepresentable {
 // MARK: - DashboardView
 
 struct DashboardView: View {
+    @ObservedObject private var ledgers = LedgerStore.shared
     @EnvironmentObject var vm: TransactionViewModel
     @EnvironmentObject var sync: SyncEngine
     @AppStorage("biometricLockEnabled") private var biometricLockEnabled = false
@@ -85,6 +86,7 @@ struct DashboardView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
+                    if let error = ledgers.startupError { importErrorBanner(error) }
                     if vm.conflictCount > 0 { conflictBanner }
                     if let msg = vm.importSuccess { importSuccessBanner(msg) }
                     if let err = vm.importError   { importErrorBanner(err) }
@@ -104,14 +106,19 @@ struct DashboardView: View {
                 }
                 .frame(width: 0, height: 0)
             )
-            .navigationTitle("账单")
+            .navigationTitle(ledgers.activeName == "原始账本" ? "账单" : ledgers.activeName)
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
+                    HStack(spacing: 18) {
+                        NavigationLink(destination: SettingsView()) {
+                            Image(systemName: "gearshape")
+                        }
                     Button(action: { showEntry = true }) {
                         Image(systemName: "plus.circle.fill")
                             .font(.title2)
                             .foregroundStyle(.blue)
+                    }
                     }
                 }
                 ToolbarItem(placement: .topBarLeading) {
@@ -179,20 +186,22 @@ struct DashboardView: View {
                 showExportSheet = false
             }
         }
+        .id(ledgers.context.id)
     }
 
     private func exportXlsx() {
         appLog("开始导出表格")
+        let reportTransactions = vm.transactions.map { original -> Transaction in
+            var t = original
+            t.category = TransactionCategory(rawValue: CategorySettings.shared.name(for: original.category)) ?? original.category
+            return t
+        }
         DispatchQueue.global(qos: .userInitiated).async {
             do {
                 let tmp = FileManager.default.temporaryDirectory
                     .appendingPathComponent("chaiwu_export_\(Int(Date().timeIntervalSince1970)).xlsx")
-                try XlsxManager.shared.exportToXlsx(vm.transactions)
-                let src = XlsxManager.shared.xlsxURL
-                if FileManager.default.fileExists(atPath: tmp.path) {
-                    try FileManager.default.removeItem(at: tmp)
-                }
-                try FileManager.default.copyItem(at: src, to: tmp)
+                let data = try OOXMLWriter.generate(transactions: reportTransactions)
+                try data.write(to: tmp, options: .atomic)
                 appLog("导出成功: \(tmp.lastPathComponent)")
                 DispatchQueue.main.async {
                     self.exportURL = tmp
@@ -301,6 +310,8 @@ struct SummaryMiniCard: View {
             }
             Text(amount.formatted(.currency(code: "CNY")))
                 .font(.system(size: 18, weight: .semibold, design: .rounded))
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
                 .foregroundStyle(color)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -327,6 +338,7 @@ struct FilterChip: View {
 
 struct TransactionRow: View {
     let transaction: Transaction
+    @ObservedObject private var categories = CategorySettings.shared
 
     private static let dateFmt: DateFormatter = {
         let f = DateFormatter(); f.dateFormat = "MM-dd"; return f
@@ -344,7 +356,7 @@ struct TransactionRow: View {
             .frame(width: 36)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(transaction.category.rawValue)
+                Text(categories.name(for: transaction.category))
                     .font(.subheadline.weight(.medium))
                 if !transaction.note.isEmpty {
                     Text(transaction.note)
@@ -364,6 +376,7 @@ struct TransactionRow: View {
         .padding(12)
         .background(.background)
         .clipShape(RoundedRectangle(cornerRadius: 12))
+        .contentShape(Rectangle())
     }
 }
 

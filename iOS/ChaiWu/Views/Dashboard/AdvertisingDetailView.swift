@@ -2,6 +2,7 @@ import SwiftUI
 
 struct AdvertisingDetailView: View {
     @EnvironmentObject var vm: TransactionViewModel
+    @State private var editingTransaction: Transaction?
 
     private static let monthFmt: DateFormatter = {
         let f = DateFormatter(); f.locale = Locale(identifier: "zh_CN")
@@ -23,7 +24,7 @@ struct AdvertisingDetailView: View {
         return dict.map { key, items in
             let total = items.reduce(Decimal(0)) { $0 + $1.amount }
             return (month: key, total: total, items: items.sorted { $0.date > $1.date })
-        }.sorted { $0.month > $1.month }
+        }.sorted { ($0.items.first?.date ?? .distantPast) > ($1.items.first?.date ?? .distantPast) }
     }
 
     var body: some View {
@@ -85,6 +86,11 @@ struct AdvertisingDetailView: View {
                                     .foregroundStyle(.orange)
                             }
                             .padding(.vertical, 2)
+                            .contentShape(Rectangle())
+                            .onTapGesture { editingTransaction = t }
+                            .swipeActions {
+                                Button("删除", role: .destructive) { vm.delete(t) }
+                            }
                         }
                     } header: {
                         HStack {
@@ -101,6 +107,10 @@ struct AdvertisingDetailView: View {
             .listStyle(.insetGrouped)
             .navigationTitle("广告支出明细")
             .navigationBarTitleDisplayMode(.large)
+            .sheet(item: $editingTransaction) { EntryView(editing: $0).environmentObject(vm) }
+            .alert("操作失败", isPresented: Binding(get: { vm.writeError != nil }, set: { if !$0 { vm.writeError = nil } })) {
+                Button("好") { vm.writeError = nil }
+            } message: { Text(vm.writeError ?? "") }
         }
     }
 }
