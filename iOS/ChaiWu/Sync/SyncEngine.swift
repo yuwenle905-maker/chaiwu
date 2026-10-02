@@ -38,27 +38,35 @@ final class SyncEngine: ObservableObject {
     func performSync() {
         syncQueue.async { [weak self] in
             guard let self else { return }
-            DispatchQueue.main.async { self.isSyncing = true; self.syncError = nil }
+            let context = LedgerStore.shared.context
+            let syncURL = XlsxManager.shared.url(for: context.syncFilename)
+            DispatchQueue.main.async {
+                guard LedgerStore.shared.context.id == context.id else { return }
+                self.isSyncing = true; self.syncError = nil
+            }
 
             do {
-                let remote = try XlsxManager.shared.importFromXlsx()
-                let local  = DatabaseManager.shared.fetchAll()
+                if let error = LedgerStore.shared.startupError { throw SyncError.parseError(error) }
+                let remote = try XlsxManager.shared.importFromXlsx(at: syncURL)
+                let local  = context.database.fetchAll()
                 let (merged, conflicts) = self.merge(local: local, remote: remote)
 
-                guard DatabaseManager.shared.batchUpsert(merged) else {
-                    throw SyncError.parseError(DatabaseManager.shared.lastError)
+                guard context.database.batchUpsert(merged) else {
+                    throw SyncError.parseError(context.database.lastError)
                 }
                 // 再读一次，纳入同步期间保存的编辑及删除。
-                try XlsxManager.shared.exportToXlsx(DatabaseManager.shared.fetchAll())
-                self.lastExportedData = try Data(contentsOf: XlsxManager.shared.xlsxURL)
+                try XlsxManager.shared.exportToXlsx(context.database.fetchAll(), to: syncURL)
+                self.lastExportedData = try Data(contentsOf: syncURL)
 
                 DispatchQueue.main.async {
+                    guard LedgerStore.shared.context.id == context.id else { return }
                     self.isSyncing = false
                     self.lastSyncDate = Date()
                     self.conflictCount = conflicts.count
                 }
             } catch {
                 DispatchQueue.main.async {
+                    guard LedgerStore.shared.context.id == context.id else { return }
                     self.isSyncing = false
                     self.syncError = error.localizedDescription
                 }
@@ -70,13 +78,25 @@ final class SyncEngine: ObservableObject {
     func rebuildSyncFile() {
         syncQueue.async { [weak self] in
             guard let self else { return }
-            DispatchQueue.main.async { self.isSyncing = true; self.syncError = nil }
+            let context = LedgerStore.shared.context
+            let syncURL = XlsxManager.shared.url(for: context.syncFilename)
+            DispatchQueue.main.async {
+                guard LedgerStore.shared.context.id == context.id else { return }
+                self.isSyncing = true; self.syncError = nil
+            }
             do {
-                try XlsxManager.shared.exportToXlsx(DatabaseManager.shared.fetchAll())
-                self.lastExportedData = try Data(contentsOf: XlsxManager.shared.xlsxURL)
-                DispatchQueue.main.async { self.isSyncing = false; self.lastSyncDate = Date() }
+                if let error = LedgerStore.shared.startupError { throw SyncError.parseError(error) }
+                try XlsxManager.shared.exportToXlsx(context.database.fetchAll(), to: syncURL)
+                self.lastExportedData = try Data(contentsOf: syncURL)
+                DispatchQueue.main.async {
+                    guard LedgerStore.shared.context.id == context.id else { return }
+                    self.isSyncing = false; self.lastSyncDate = Date()
+                }
             } catch {
-                DispatchQueue.main.async { self.isSyncing = false; self.syncError = error.localizedDescription }
+                DispatchQueue.main.async {
+                    guard LedgerStore.shared.context.id == context.id else { return }
+                    self.isSyncing = false; self.syncError = error.localizedDescription
+                }
             }
         }
     }

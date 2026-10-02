@@ -78,6 +78,86 @@ struct DataRegression {
         settings.remove(custom, type: .expense)
         precondition(!settings.categories(for: .expense).contains(custom))
         precondition(db.fetchAll().first { $0.id == original.id }?.category == custom)
-        print("PASS: 旧库迁移、金额与跨月修改、删除保护、同步身份与日期、中文分类、旧 JSON、分类管理")
+        try ledgerRegression(in: directory)
+        print("PASS: 旧库迁移、编辑删除、跨月修改、同步身份、分类管理、账本备份/新建/恢复、同步隔离、自动备份及失败保护")
+    }
+
+    static func ledgerRegression(in directory: URL) throws {
+        let suite = "LedgerRegression.\(UUID().uuidString)"
+        let preferences = UserDefaults(suiteName: suite)!
+        defer { preferences.removePersistentDomain(forName: suite) }
+        preferences.set(["房租": "办公场地"], forKey: "categoryNames")
+        let root = directory.appendingPathComponent("ledgers", isDirectory: true)
+        let store = LedgerStore(root: root, defaults: preferences)
+        let oldContext = store.context
+        precondition(oldContext.id == "legacy" && oldContext.syncFilename == "chaiwu_data.xlsx")
+        let income = Transaction(type: .income, amount: 100, category: .clientDeposit)
+        let expense = Transaction(type: .expense, amount: 20, category: .rent)
+        precondition(oldContext.database.batchUpsert([income, expense]))
+        let backup = try store.backupCurrent()
+        precondition(backup.categoryNames["房租"] == "办公场地")
+        precondition(tryCount(store, backup) == 2)
+
+        try store.startNew(name: "十月账本")
+        let newContext = store.context
+        precondition(newContext.id != oldContext.id && newContext.syncFilename != oldContext.syncFilename)
+        precondition(newContext.database.fetchAll().isEmpty && store.activeName == "十月账本")
+        precondition(store.backups.count == 2 && tryCount(store, backup) == 2)
+        let freshExpense = Transaction(type: .expense, amount: 5, category: .advertising)
+        precondition(newContext.database.upsert(freshExpense))
+        // 模拟切换前排队的同步仍写旧连接：不会写入新账本或改变已经完成的备份。
+        let late = Transaction(type: .expense, amount: 999, category: .rent)
+        precondition(oldContext.database.upsert(late))
+        precondition(newContext.database.fetchAll().count == 1 && tryCount(store, backup) == 2)
+        let afterRestart = LedgerStore(root: root, defaults: preferences)
+        precondition(afterRestart.startupError == nil && afterRestart.context.id == newContext.id)
+        precondition(afterRestart.context.database.fetchAll().first?.id == freshExpense.id)
+
+        try store.restore(backup)
+        precondition(store.context.id != oldContext.id && store.context.id != newContext.id)
+        precondition(store.context.database.fetchAll().count == 2)
+        precondition(store.context.database.fetchAll().reduce(Decimal(0), { $0 + ($1.type == .income ? $1.amount : -$1.amount) }) == 80)
+        precondition(store.backups.count == 3)
+        let preservedNewBook = store.backups.first { $0.ledgerID == newContext.id }!
+        precondition(tryCount(store, preservedNewBook) == 1)
+        let preservedTransactions = try store.transactions(in: preservedNewBook)
+        precondition(preservedTransactions.first?.id == freshExpense.id)
+        precondition(tryCount(store, backup) == 2, "恢复不修改原始备份")
+        let restoredRestart = LedgerStore(root: root, defaults: preferences)
+        precondition(restoredRestart.context.id == store.context.id && restoredRestart.context.database.fetchAll().count == 2)
+
+        let day = Calendar.current.date(from: DateComponents(year: 2040, month: 2, day: 1, hour: 12))!
+        let disabled = try store.automaticBackupIfNeeded(at: day)
+        precondition(!disabled)
+        preferences.set(true, forKey: "automaticLedgerBackup")
+        let firstAuto = try store.automaticBackupIfNeeded(at: day)
+        let repeatedAuto = try store.automaticBackupIfNeeded(at: day)
+        let nextAuto = try store.automaticBackupIfNeeded(at: Calendar.current.date(byAdding: .day, value: 1, to: day)!)
+        precondition(firstAuto && !repeatedAuto && nextAuto, "同一账本每天仅自动备份一次")
+
+        let faultRoot = directory.appendingPathComponent("failure", isDirectory: true)
+        let faultStore = LedgerStore(root: faultRoot, defaults: preferences)
+        precondition(faultStore.context.database.upsert(expense))
+        let beforeFailure = faultStore.context.id
+        try FileManager.default.createDirectory(at: faultRoot.appendingPathComponent("ledgers.json"), withIntermediateDirectories: true)
+        do {
+            try faultStore.startNew(name: "不应开启")
+            fatalError("无法保存备份索引时必须停止新建")
+        } catch {}
+        precondition(faultStore.context.id == beforeFailure && faultStore.context.database.fetchAll().count == 1)
+        let badIndex = LedgerStore(root: faultRoot, defaults: preferences)
+        precondition(badIndex.startupError != nil)
+        do { _ = try badIndex.backupCurrent(); fatalError("索引损坏必须阻止写入") } catch {}
+
+        let brokenBackup = store.backups.first!
+        try FileManager.default.removeItem(at: root.appendingPathComponent(brokenBackup.databaseFile))
+        let beforeRestore = store.context.id
+        do { try store.restore(brokenBackup); fatalError("备份缺失时不得恢复") } catch {}
+        precondition(store.context.id == beforeRestore && store.context.database.fetchAll().count == 2)
+    }
+
+    static func tryCount(_ store: LedgerStore, _ backup: LedgerBackup) -> Int {
+        do { return try store.transactions(in: backup).count }
+        catch { fatalError("备份应可完整读取：\(error)") }
     }
 }

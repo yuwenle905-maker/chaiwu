@@ -65,6 +65,7 @@ struct DocumentPickerPresenter: UIViewControllerRepresentable {
 // MARK: - DashboardView
 
 struct DashboardView: View {
+    @ObservedObject private var ledgers = LedgerStore.shared
     @EnvironmentObject var vm: TransactionViewModel
     @EnvironmentObject var sync: SyncEngine
     @AppStorage("biometricLockEnabled") private var biometricLockEnabled = false
@@ -85,6 +86,7 @@ struct DashboardView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
+                    if let error = ledgers.startupError { importErrorBanner(error) }
                     if vm.conflictCount > 0 { conflictBanner }
                     if let msg = vm.importSuccess { importSuccessBanner(msg) }
                     if let err = vm.importError   { importErrorBanner(err) }
@@ -104,7 +106,7 @@ struct DashboardView: View {
                 }
                 .frame(width: 0, height: 0)
             )
-            .navigationTitle("账单")
+            .navigationTitle(ledgers.activeName == "原始账本" ? "账单" : ledgers.activeName)
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -184,6 +186,7 @@ struct DashboardView: View {
                 showExportSheet = false
             }
         }
+        .id(ledgers.context.id)
     }
 
     private func exportXlsx() {

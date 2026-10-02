@@ -8,17 +8,21 @@ final class XlsxManager {
     static let shared = XlsxManager()
 
     var xlsxURL: URL {
+        url(for: LedgerStore.shared.context.syncFilename)
+    }
+
+    func url(for filename: String) -> URL {
         // 优先 iCloud Drive（TrollStore 直接访问）
         let icloud = URL(fileURLWithPath: "/private/var/mobile/Library/Mobile Documents/com~apple~CloudDocs/ChaiWu")
         if (try? FileManager.default.createDirectory(at: icloud, withIntermediateDirectories: true)) != nil
             || FileManager.default.fileExists(atPath: icloud.path) {
-            return icloud.appendingPathComponent("chaiwu_data.xlsx")
+            return icloud.appendingPathComponent(filename)
         }
         // fallback：沙盒 Documents
         let sandbox = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
             .appendingPathComponent("ChaiWu", isDirectory: true)
         try? FileManager.default.createDirectory(at: sandbox, withIntermediateDirectories: true)
-        return sandbox.appendingPathComponent("chaiwu_data.xlsx")
+        return sandbox.appendingPathComponent(filename)
     }
 
     private var backupDir: URL {
@@ -31,12 +35,13 @@ final class XlsxManager {
 
     // MARK: - 导出（写入 xlsx）
 
-    func exportToXlsx(_ transactions: [Transaction]) throws {
+    func exportToXlsx(_ transactions: [Transaction], to target: URL? = nil) throws {
+        let targetURL = target ?? xlsxURL
         // 1. 写前备份
-        try makeBackup()
+        try makeBackup(source: targetURL)
 
         // 2. 生成 xlsx 内容到临时文件（原子写入）
-        let tempURL = xlsxURL.deletingLastPathComponent()
+        let tempURL = targetURL.deletingLastPathComponent()
             .appendingPathComponent("temp_\(UUID().uuidString).xlsx")
 
         let data = try OOXMLWriter.generateSync(transactions: transactions)
@@ -44,19 +49,20 @@ final class XlsxManager {
 
         // 3. Atomic Move：覆盖原文件
         let fm = FileManager.default
-        if fm.fileExists(atPath: xlsxURL.path) {
-            _ = try fm.replaceItemAt(xlsxURL, withItemAt: tempURL,
+        if fm.fileExists(atPath: targetURL.path) {
+            _ = try fm.replaceItemAt(targetURL, withItemAt: tempURL,
                                       backupItemName: nil, options: .usingNewMetadataOnly)
         } else {
-            try fm.moveItem(at: tempURL, to: xlsxURL)
+            try fm.moveItem(at: tempURL, to: targetURL)
         }
     }
 
     // MARK: - 导入（读取 xlsx / xls / csv）
 
-    func importFromXlsx() throws -> [Transaction] {
-        guard FileManager.default.fileExists(atPath: xlsxURL.path) else { return [] }
-        let data = try Data(contentsOf: xlsxURL)
+    func importFromXlsx(at source: URL? = nil) throws -> [Transaction] {
+        let sourceURL = source ?? xlsxURL
+        guard FileManager.default.fileExists(atPath: sourceURL.path) else { return [] }
+        let data = try Data(contentsOf: sourceURL)
         return try OOXMLReader.parse(data: data, requireIdentity: true)
     }
 
@@ -92,13 +98,13 @@ final class XlsxManager {
 
     // MARK: - 备份（最多保留 30 份）
 
-    private func makeBackup() throws {
-        guard FileManager.default.fileExists(atPath: xlsxURL.path) else { return }
+    private func makeBackup(source: URL) throws {
+        guard FileManager.default.fileExists(atPath: source.path) else { return }
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyyMMdd_HHmm"
         let name = "\(formatter.string(from: Date()))_\(UUID().uuidString).xlsx"
         let dest = backupDir.appendingPathComponent(name)
-        try FileManager.default.copyItem(at: xlsxURL, to: dest)
+        try FileManager.default.copyItem(at: source, to: dest)
         pruneBackups()
     }
 

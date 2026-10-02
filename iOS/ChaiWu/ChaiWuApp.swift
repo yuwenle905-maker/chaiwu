@@ -5,6 +5,7 @@ struct ChaiWuApp: App {
     @StateObject private var vm = TransactionViewModel()
     @StateObject private var sync = SyncEngine.shared
     @AppStorage("biometricLockEnabled") private var biometricLockEnabled = false
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
         WindowGroup {
@@ -19,9 +20,15 @@ struct ChaiWuApp: App {
                         if !vm.isUnlocked {
                             vm.isUnlocked = true
                             vm.reload()
+                            vm.automaticBackupIfNeeded()
                             SyncEngine.shared.startWatching()
                         }
                     }
+            }
+        }
+        .onChange(of: scenePhase) { phase in
+            if phase == .active && (!biometricLockEnabled || vm.isUnlocked) {
+                vm.automaticBackupIfNeeded()
             }
         }
     }

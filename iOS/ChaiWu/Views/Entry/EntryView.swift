@@ -6,6 +6,7 @@ struct EntryView: View {
 
     // 编辑模式传入已有账单；nil 表示新增
     var editing: Transaction?
+    private let ledgerID: String
 
     @State private var type: TransactionType
     @State private var amountText: String
@@ -18,6 +19,7 @@ struct EntryView: View {
 
     init(editing: Transaction? = nil) {
         self.editing = editing
+        self.ledgerID = LedgerStore.shared.context.id
         _type        = State(initialValue: editing?.type ?? .expense)
         _amountText  = State(initialValue: editing.map { "\($0.amount)" } ?? "")
         _category    = State(initialValue: editing?.category ?? CategorySettings.shared.categories(for: .expense).first ?? .custom)
@@ -88,7 +90,7 @@ struct EntryView: View {
                         Button("删除这条账单", role: .destructive) { showDelete = true }
                             .confirmationDialog("删除这条账单？", isPresented: $showDelete, titleVisibility: .visible) {
                                 Button("删除", role: .destructive) {
-                                    if vm.delete(t) { dismiss() }
+                                    if vm.delete(t, ledgerID: ledgerID) { dismiss() }
                                 }
                             }
                     }
@@ -120,9 +122,9 @@ struct EntryView: View {
         if var t = editing {
             t.type = type; t.amount = amt; t.category = category
             t.note = note; t.date = date
-            guard vm.update(t) else { return }
+            guard vm.update(t, ledgerID: ledgerID) else { return }
         } else {
-            guard vm.add(type: type, amount: amt, category: category, note: note, date: date) else { return }
+            guard vm.add(type: type, amount: amt, category: category, note: note, date: date, ledgerID: ledgerID) else { return }
         }
         dismiss()
     }
@@ -176,6 +178,9 @@ final class CategorySettings: ObservableObject {
 }
 
 struct SettingsView: View {
+    @EnvironmentObject private var vm: TransactionViewModel
+    @ObservedObject private var ledgers = LedgerStore.shared
+    @AppStorage("automaticLedgerBackup") private var automaticBackup = false
     @ObservedObject private var sync = SyncEngine.shared
     @AppStorage("biometricLockEnabled") private var biometricLockEnabled = false
     @ObservedObject private var categories = CategorySettings.shared
@@ -185,9 +190,31 @@ struct SettingsView: View {
     @State private var showEditor = false
     @State private var error: String?
     @State private var showRebuild = false
+    @State private var showNewLedger = false
+    @State private var newLedgerName = ""
 
     var body: some View {
         Form {
+            Section {
+                LabeledContent("当前账本", value: ledgers.activeName)
+                Button("一键备份当前账本") { vm.backupLedger() }
+                    .disabled(vm.isImporting || sync.isSyncing || ledgers.startupError != nil)
+                Button("备份并新建账本") { newLedgerName = ""; showNewLedger = true }
+                    .disabled(vm.isImporting || sync.isSyncing || ledgers.startupError != nil)
+                NavigationLink("历史备份（\(ledgers.backups.count)份）") {
+                    LedgerHistoryView().environmentObject(vm)
+                }
+                Toggle("每天首次打开自动备份", isOn: $automaticBackup)
+                    .onChange(of: automaticBackup) { enabled in if enabled { vm.automaticBackupIfNeeded() } }
+            } header: { Text("账本与备份") } footer: {
+                Text("新建前自动完整备份，成功后开启零记录的新账本，保留分类设置。历史备份永久保存在本机，可查看或恢复。每日自动备份需打开 App 才会执行。")
+            }
+            if let success = vm.importSuccess {
+                Section { Text(success).foregroundStyle(.green) }
+            }
+            if let failure = vm.writeError {
+                Section { Text(failure).foregroundStyle(.red) }
+            }
             Section("隐私") { Toggle("面容 / 指纹解锁", isOn: $biometricLockEnabled) }
             Section {
                 if let message = sync.syncError { Text(message).foregroundStyle(.red) }
@@ -220,6 +247,11 @@ struct SettingsView: View {
             }
         }
         .navigationTitle("设置")
+        .alert("备份并新建账本", isPresented: $showNewLedger) {
+            TextField("新账本名称（可留空）", text: $newLedgerName)
+            Button("备份并新建") { vm.startNewLedger(name: newLedgerName) }
+            Button("取消", role: .cancel) {}
+        } message: { Text("先完整备份当前账本，备份成功后才切换。新账本记录、收入、支出、余额均为零，旧账本可在历史备份中查看或恢复。") }
         .confirmationDialog("以本机账单重建同步文件？", isPresented: $showRebuild, titleVisibility: .visible) {
             Button("备份并重建") { sync.rebuildSyncFile() }
             Button("取消", role: .cancel) {}
@@ -232,5 +264,87 @@ struct SettingsView: View {
         .alert("无法保存分类", isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) {
             Button("好") { error = nil }
         } message: { Text(error ?? "") }
+    }
+}
+
+struct LedgerHistoryView: View {
+    @EnvironmentObject private var vm: TransactionViewModel
+    @ObservedObject private var ledgers = LedgerStore.shared
+
+    var body: some View {
+        List {
+            if ledgers.backups.isEmpty { Text("暂无历史备份").foregroundStyle(.secondary) }
+            ForEach(ledgers.backups) { backup in
+                NavigationLink {
+                    LedgerBackupDetailView(backup: backup).environmentObject(vm)
+                } label: {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(backup.name)
+                        Text(backup.createdAt.formatted(date: .numeric, time: .standard))
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+        .navigationTitle("历史备份")
+    }
+}
+
+struct LedgerBackupDetailView: View {
+    @EnvironmentObject private var vm: TransactionViewModel
+    @ObservedObject private var sync = SyncEngine.shared
+    let backup: LedgerBackup
+    @State private var transactions: [Transaction] = []
+    @State private var loadError: String?
+    @State private var showRestore = false
+    @State private var loaded = false
+
+    private var income: Decimal { transactions.filter { $0.type == .income }.reduce(0) { $0 + $1.amount } }
+    private var expense: Decimal { transactions.filter { $0.type == .expense }.reduce(0) { $0 + $1.amount } }
+
+    var body: some View {
+        List {
+            Section("备份信息") {
+                Text(backup.createdAt.formatted(date: .numeric, time: .standard))
+                LabeledContent("收入", value: income.formatted(.currency(code: "CNY")))
+                LabeledContent("支出", value: expense.formatted(.currency(code: "CNY")))
+                LabeledContent("余额", value: (income - expense).formatted(.currency(code: "CNY")))
+                Text("\(transactions.count) 条账单 · 历史备份只读")
+            }
+            if let loadError { Section { Text(loadError).foregroundStyle(.red) } }
+            if let error = vm.writeError { Section { Text(error).foregroundStyle(.red) } }
+            Section {
+                Button("恢复为当前账本") { showRestore = true }
+                    .disabled(!loaded || sync.isSyncing || vm.isImporting)
+            } footer: {
+                Text("恢复前会自动备份当前账本。恢复账单数据，继续沿用当前分类设置；原历史备份保留。")
+            }
+            Section("历史明细") {
+                ForEach(transactions) { transaction in
+                    VStack(alignment: .leading, spacing: 5) {
+                        HStack {
+                            Text(backup.categoryNames[transaction.category.rawValue] ?? transaction.category.rawValue)
+                            Spacer()
+                            Text((transaction.type == .income ? "+" : "-") + transaction.amount.formatted(.currency(code: "CNY")))
+                                .foregroundStyle(transaction.type == .income ? .green : .red)
+                        }
+                        Text(transaction.date.formatted(date: .numeric, time: .shortened))
+                            .font(.caption).foregroundStyle(.secondary)
+                        if !transaction.note.isEmpty { Text(transaction.note).font(.caption) }
+                    }
+                }
+            }
+        }
+        .navigationTitle(backup.name)
+        .onAppear {
+            do {
+                transactions = try LedgerStore.shared.transactions(in: backup).filter { !$0.isDeleted && !$0.isConflict }
+                loaded = true
+            } catch { loadError = error.localizedDescription }
+        }
+        .confirmationDialog("恢复这个历史账本？", isPresented: $showRestore, titleVisibility: .visible) {
+            Button("先备份当前账本并恢复") { vm.restoreLedger(backup) }
+            Button("取消", role: .cancel) {}
+        } message: { Text("当前账本先完整备份，再切换到恢复的历史数据。两个账本均不会被删除。") }
     }
 }
