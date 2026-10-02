@@ -50,6 +50,9 @@ struct DataRegression {
         precondition(repeatRead.map(\.id) == read.map(\.id), "反复同步不得生成新 ID")
         let empty = try OOXMLReader.parse(data: OOXMLWriter.generateSync(transactions: []), requireIdentity: true)
         precondition(empty.isEmpty)
+        let report = try OOXMLReader.parse(data: OOXMLWriter.generate(transactions: [original]))
+        precondition(report.count == 1 && report[0].type == .expense && report[0].amount == 42 && report[0].category == custom)
+        precondition(Calendar.current.component(.year, from: report[0].date) == 2026 && Calendar.current.component(.month, from: report[0].date) == 10)
         do {
             _ = try OOXMLReader.parse(data: OOXMLWriter.generate(transactions: [original]), requireIdentity: true)
             fatalError("旧六列表不能自动同步")
@@ -67,6 +70,7 @@ struct DataRegression {
         precondition(settings.save(name: "推广支出", type: .expense, editing: .advertising) == nil)
         precondition(settings.name(for: .advertising) == "推广支出")
         precondition(settings.categories(for: .expense).contains(.advertising), "改名保留广告口径")
+        precondition(settings.save(name: "广告费", type: .expense, editing: nil) != nil, "不能重复添加已改名的原分类标识")
         precondition(settings.save(name: "设备维修", type: .expense, editing: nil) == nil)
         precondition(settings.categories(for: .expense).contains(custom))
         precondition(!settings.categories(for: .income).contains(custom))

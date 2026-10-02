@@ -188,11 +188,16 @@ struct DashboardView: View {
 
     private func exportXlsx() {
         appLog("开始导出表格")
+        let reportTransactions = vm.transactions.map { original -> Transaction in
+            var t = original
+            t.category = TransactionCategory(rawValue: CategorySettings.shared.name(for: original.category)) ?? original.category
+            return t
+        }
         DispatchQueue.global(qos: .userInitiated).async {
             do {
                 let tmp = FileManager.default.temporaryDirectory
                     .appendingPathComponent("chaiwu_export_\(Int(Date().timeIntervalSince1970)).xlsx")
-                let data = try OOXMLWriter.generate(transactions: vm.transactions)
+                let data = try OOXMLWriter.generate(transactions: reportTransactions)
                 try data.write(to: tmp, options: .atomic)
                 appLog("导出成功: \(tmp.lastPathComponent)")
                 DispatchQueue.main.async {

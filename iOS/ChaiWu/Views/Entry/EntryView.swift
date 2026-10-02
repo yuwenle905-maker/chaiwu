@@ -151,7 +151,7 @@ final class CategorySettings: ObservableObject {
         let value = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !value.isEmpty else { return "分类名称不能为空" }
         let list = categories(for: type)
-        guard !list.contains(where: { $0 != editing && self.name(for: $0) == value }) else { return "同类型已有这个分类" }
+        guard !list.contains(where: { $0 != editing && (self.name(for: $0) == value || $0.rawValue == value) }) else { return "同类型已有这个分类" }
         if let editing {
             names[editing.rawValue] = value
         } else {

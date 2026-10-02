@@ -143,7 +143,7 @@ enum OOXMLWriter {
     static let dateFmt: DateFormatter = {
         let f = DateFormatter()
         f.locale = Locale(identifier: "zh_CN")
-        f.dateFormat = "M月d日"
+        f.dateFormat = "yyyy-MM-dd HH:mm"
         return f
     }()
 
@@ -385,6 +385,11 @@ enum OOXMLReader {
         let now = Date()
         var cal = Calendar(identifier: .gregorian)
         cal.timeZone = TimeZone(identifier: "Asia/Shanghai") ?? .current
+        let isReport = rows.first == ["日期", "类型", "金额", "余额", "分类", "备注"]
+        let reportDate = DateFormatter()
+        reportDate.locale = Locale(identifier: "en_US_POSIX")
+        reportDate.timeZone = .current
+        reportDate.dateFormat = "yyyy-MM-dd HH:mm"
 
         for (i, values) in rows.enumerated() {
             guard i > 0, values.count >= 2 else { continue }
@@ -392,7 +397,8 @@ enum OOXMLReader {
             guard !dateStr.isEmpty else { continue }
 
             // 解析金额（B列）
-            let amtStr = values[1].replacingOccurrences(of: ",", with: "")
+            if isReport && values.count < 6 { continue }
+            let amtStr = values[isReport ? 2 : 1].replacingOccurrences(of: ",", with: "")
             guard let amtDouble = Double(amtStr), amtDouble != 0 else { continue }
             guard let amount = Decimal(string: String(format: "%.2f", abs(amtDouble))) else { continue }
 
@@ -400,11 +406,12 @@ enum OOXMLReader {
             let date: Date
             if let d = parseChineseDateXlsx(dateStr, cal: cal) { date = d }
             else if let d = ISO8601DateFormatter().date(from: dateStr) { date = d }
+            else if let d = reportDate.date(from: dateStr) { date = d }
             else { date = now }
 
-            let type: TransactionType = amtDouble >= 0 ? .income : .expense
-            let note = values.count >= 4 ? values[3] : ""
-            let category = CSVImporter.guessCategory(note: note, isIncome: amtDouble >= 0)
+            let type: TransactionType = isReport ? (TransactionType(rawValue: values[1]) ?? .expense) : (amtDouble >= 0 ? .income : .expense)
+            let note = isReport ? values[5] : (values.count >= 4 ? values[3] : "")
+            let category = isReport ? (TransactionCategory(rawValue: values[4]) ?? .custom) : CSVImporter.guessCategory(note: note, isIncome: amtDouble >= 0)
 
             results.append(Transaction(date: date, type: type, amount: amount,
                 category: category, note: note, sourceDevice: "xlsx导入"))
