@@ -154,6 +154,12 @@ struct DataRegression {
         let beforeRestore = store.context.id
         do { try store.restore(brokenBackup); fatalError("备份缺失时不得恢复") } catch {}
         precondition(store.context.id == beforeRestore && store.context.database.fetchAll().count == 2)
+
+        let activeFile = root.appendingPathComponent("ledger_\(store.context.id).sqlite")
+        try FileManager.default.removeItem(at: activeFile)
+        let missingActive = LedgerStore(root: root, defaults: preferences)
+        precondition(missingActive.startupError != nil)
+        precondition(!FileManager.default.fileExists(atPath: activeFile.path), "活动账本缺失时不能创建空库掩盖异常")
     }
 
     static func tryCount(_ store: LedgerStore, _ backup: LedgerBackup) -> Int {

@@ -207,7 +207,7 @@ struct SettingsView: View {
                 Toggle("每天首次打开自动备份", isOn: $automaticBackup)
                     .onChange(of: automaticBackup) { enabled in if enabled { vm.automaticBackupIfNeeded() } }
             } header: { Text("账本与备份") } footer: {
-                Text("新建前自动完整备份，成功后开启零记录的新账本，保留分类设置。历史备份永久保存在本机，可查看或恢复。每日自动备份需打开 App 才会执行。")
+                Text("新建前自动完整备份，成功后开启零记录的新账本，保留分类设置。历史备份保存在本机，不自动清理，可查看或恢复。每日自动备份需打开 App 才会执行。")
             }
             if let success = vm.importSuccess {
                 Section { Text(success).foregroundStyle(.green) }

@@ -138,6 +138,7 @@ final class TransactionViewModel: ObservableObject {
     }
 
     func backupLedger() {
+        writeError = nil
         do {
             try LedgerStore.shared.backupCurrent()
             importSuccess = "备份成功，可在设置的历史备份中查看"
@@ -152,9 +153,11 @@ final class TransactionViewModel: ObservableObject {
 
     func startNewLedger(name: String) {
         guard !isImporting else { writeError = "请等待表格导入结束"; return }
+        writeError = nil
         do {
             try LedgerStore.shared.startNew(name: name)
             reload()
+            importError = nil
             importSuccess = "旧账本已完整备份，新账本已开始，余额和记录均为零"
             sync.performSync()
         } catch { writeError = error.localizedDescription }
@@ -162,9 +165,11 @@ final class TransactionViewModel: ObservableObject {
 
     func restoreLedger(_ backup: LedgerBackup) {
         guard !isImporting else { writeError = "请等待表格导入结束"; return }
+        writeError = nil
         do {
             try LedgerStore.shared.restore(backup)
             reload()
+            importError = nil
             importSuccess = "历史账本已恢复，恢复前的账本也已备份"
             sync.performSync()
         } catch { writeError = error.localizedDescription }
